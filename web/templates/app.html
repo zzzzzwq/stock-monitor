@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>盯盘助手</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#333;font-size:14px}
+.header{background:#1a1a2e;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:18px;font-weight:600}
+.header .user-info{font-size:12px;opacity:.8;cursor:pointer}
+.container{padding:12px;max-width:600px;margin:0 auto}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card-title{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f5f5}
+.row:last-child{border-bottom:none}
+.name{font-size:14px;color:#555}
+.price{font-size:15px;font-weight:600}
+.price.up{color:#e74c3c}.price.down{color:#27ae60}
+.tag{font-size:12px;padding:2px 8px;border-radius:4px;font-weight:500}
+.tag.up{background:#fce4e4;color:#e74c3c}
+.tag.down{background:#e8f5e9;color:#27ae60}
+.tag.neutral{background:#f5f5f5;color:#999}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;cursor:pointer;display:inline-block}
+.btn-primary{background:#1a1a2e;color:#fff;width:100%}
+.btn-sm{background:#e8f4fd;color:#3498db;padding:4px 12px;font-size:12px;border-radius:4px;border:none;cursor:pointer}
+.btn-danger{background:#fce4e4;color:#e74c3c;padding:4px 12px;font-size:12px;border-radius:4px;border:none;cursor:pointer}
+.btn-cancel{background:#f5f5f5;color:#666;padding:10px 20px;border:none;border-radius:8px;font-size:14px;cursor:pointer}
+input,select{width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;margin-bottom:10px;background:#fff}
+label{display:block;font-size:13px;color:#666;margin-bottom:4px}
+.form-group{margin-bottom:12px}
+.form-row{display:flex;gap:10px}
+.form-row>*{flex:1}
+.total-pnl{text-align:center;font-size:24px;font-weight:700;padding:16px;background:#fafafa;border-radius:8px;margin-bottom:12px}
+.tech-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tech-item{background:#fafafa;padding:10px;border-radius:8px;text-align:center}
+.tech-item .label{font-size:11px;color:#999}
+.tech-item .value{font-size:16px;font-weight:600;margin-top:2px}
+.tab-bar{display:flex;background:#fff;border-top:1px solid #eee;position:sticky;bottom:0;z-index:100}
+.tab{flex:1;text-align:center;padding:10px;font-size:12px;color:#999;cursor:pointer;border:none;background:none}
+.tab.active{color:#1a1a2e;font-weight:600;border-top:2px solid #1a1a2e}
+.page{display:none}
+.page.active{display:block}
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-content{background:#fff;border-radius:16px;padding:20px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px;color:#999;font-weight:500;border-bottom:1px solid #eee}
+td{padding:8px;border-bottom:1px solid #f5f5f5}
+tr:last-child td{border-bottom:none}
+.loading{text-align:center;padding:40px;color:#999}
+.login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;padding:40px 20px}
+.login-screen h2{font-size:28px;margin-bottom:8px;color:#1a1a2e}
+.login-screen p{color:#999;margin-bottom:32px;font-size:14px}
+.login-form{width:100%;max-width:320px}
+.empty-state{text-align:center;padding:32px 0;color:#999;font-size:14px}
+.signal-list{display:flex;flex-wrap:wrap;gap:6px}
+.signal{font-size:12px;padding:3px 10px;border-radius:12px}
+.signal.bull{background:#e8f5e9;color:#27ae60}
+.signal.bear{background:#fce4e4;color:#e74c3c}
+@media(prefers-color-scheme:dark){body{background:#111;color:#ddd}.card{background:#1a1a1a}.header{background:#0d0d1a}.tab-bar{background:#1a1a1a;border-top-color:#333}.tab.active{color:#fff}.modal-content{background:#1a1a1a}.tech-item,.total-pnl{background:#222}.btn-primary{background:#3498db}input,select{background:#222;color:#ddd;border-color:#444}th{color:#888}.btn-cancel{background:#333;color:#ccc}}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>📊 盯盘助手</h1>
+  <span class="user-info" id="userInfo" onclick="showSettings()">未登录</span>
+</div>
+
+<div class="container" id="loginScreen">
+  <div class="login-screen">
+    <h2>📊 盯盘助手</h2>
+    <p>A股智能盯盘分析工具</p>
+    <div class="login-form">
+      <form id="loginForm" onsubmit="return doLogin()">
+        <input type="text" id="loginName" placeholder="输入昵称" value="用户" required>
+        <button type="submit" class="btn btn-primary">登录</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="appMain" style="display:none">
+  <div class="container">
+    <div id="pageDashboard" class="page active">
+      <div id="statusBar" class="card" style="padding:10px 16px;font-size:13px"></div>
+
+      <div class="card" id="indexCard" style="display:none">
+        <div class="card-title">📊 大盘指数</div>
+        <div id="indexList"></div>
+      </div>
+
+      <div class="card" id="pnlCard" style="display:none">
+        <div class="card-title">💰 持仓盈亏</div>
+        <div id="totalPnl" class="total-pnl"></div>
+        <div id="holdingList"></div>
+      </div>
+
+      <div class="card" id="techCard" style="display:none">
+        <div class="card-title">📈 技术信号</div>
+        <div id="techList"></div>
+      </div>
+
+      <div id="emptyHint" class="empty-state" style="display:none">
+        <p>还没有持仓数据</p>
+        <button class="btn btn-primary" style="width:auto;margin-top:12px" onclick="switchTab('holdings')">去添加持仓</button>
+      </div>
+    </div>
+
+    <!-- Holdings Page -->
+    <div id="pageHoldings" class="page">
+      <button class="btn btn-primary" onclick="showHoldingForm()">+ 添加持仓</button>
+      <div style="margin-top:12px" id="holdingsTable"></div>
+      <div id="holdingsEmpty" class="empty-state" style="display:none">还没有持仓</div>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="pageSettings" class="page">
+      <div class="card">
+        <div class="card-title">👤 用户信息</div>
+        <p id="userDetail" style="font-size:13px;color:#666"></p>
+      </div>
+      <div class="card">
+        <div class="card-title">🔔 通知配置</div>
+        <div class="form-group">
+          <label>企业微信 Webhook</label>
+          <input type="url" id="wechatUrl" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...">
+        </div>
+        <div class="form-group">
+          <label>钉钉 Webhook</label>
+          <input type="url" id="dingtalkUrl" placeholder="https://oapi.dingtalk.com/robot/send?access_token=...">
+        </div>
+        <div class="form-group">
+          <label>@手机号（逗号分隔）</label>
+          <input type="text" id="atMobiles" placeholder="13800138000,13900139000">
+        </div>
+        <button class="btn btn-primary" onclick="saveNotify()">保存</button>
+      </div>
+      <div class="card">
+        <button class="btn" style="width:100%;color:#e74c3c;background:#fce4e4;border:none;padding:10px;border-radius:8px;cursor:pointer" onclick="logout()">退出登录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('dashboard')">📊 首页</button>
+    <button class="tab" onclick="switchTab('holdings')">📋 持仓</button>
+    <button class="tab" onclick="switchTab('settings')">⚙️ 设置</button>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal" id="modal">
+  <div class="modal-content" id="modalBody"></div>
+</div>
+
+<script>
+const API = '/api';
+let token = localStorage.getItem('token') || '';
+let user = null;
+
+function api(method, path, data) {
+  return fetch(API + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? {'Authorization': 'Bearer '+token} : {}) },
+    body: data ? JSON.stringify(data) : undefined
+  }).then(r => {
+    if (r.status === 401) { localStorage.removeItem('token'); token=''; showLogin(); throw new Error('unauth'); }
+    return r.json().then(d => r.ok ? d : Promise.reject(d));
+  });
+}
+
+function showLogin() {
+  document.getElementById('loginScreen').style.display='block';
+  document.getElementById('appMain').style.display='none';
+}
+function showApp() {
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appMain').style.display='block';
+}
+
+function doLogin() {
+  const name = document.getElementById('loginName').value || '用户';
+  api('POST', '/auth/dev-login', {nickname: name, id: Date.now()}).then(d => {
+    token = d.token;
+    user = d.user;
+    localStorage.setItem('token', token);
+    showApp();
+    loadDashboard();
+    loadHoldings();
+    loadSettings();
+  }).catch(e => alert('登录失败'));
+  return false;
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  token = '';
+  showLogin();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+  event.target.classList.add('active');
+  if (tab==='dashboard') loadDashboard();
+  if (tab==='holdings') loadHoldings();
+  if (tab==='settings') loadSettings();
+}
+
+// === Dashboard ===
+function loadDashboard() {
+  document.getElementById('userInfo').textContent = user?.nickname || '已登录';
+  api('GET', '/analysis/summary').then(d => {
+    const sb = document.getElementById('statusBar');
+    sb.innerHTML = d.is_trading_day ? '📈 交易中' : '📊 非交易时间';
+
+    // Indices
+    const idxList = document.getElementById('indexList');
+    const idxCard = document.getElementById('indexCard');
+    const entries = Object.entries(d.indices || {});
+    if (entries.length) {
+      idxCard.style.display = 'block';
+      idxList.innerHTML = entries.map(([name, v]) =>
+        `<div class="row"><span class="name">${name}</span><span><span class="price ${v.change_pct>0?'up':'down'}">${v.price.toFixed(2)}</span> <span class="tag ${v.change_pct>0?'up':'down'}">${v.change_pct>0?'+':''}${v.change_pct.toFixed(2)}%</span></span></div>`
+      ).join('');
+    } else idxCard.style.display = 'none';
+
+    // P&L
+    const pnlCard = document.getElementById('pnlCard');
+    const hList = document.getElementById('holdingList');
+    const tp = document.getElementById('totalPnl');
+    if (d.holdings && d.holdings.length) {
+      pnlCard.style.display = 'block';
+      tp.textContent = (d.total_pnl >= 0 ? '+' : '') + d.total_pnl + ' 元';
+      tp.className = 'total-pnl ' + (d.total_pnl >= 0 ? 'up' : 'down');
+      hList.innerHTML = d.holdings.map(h =>
+        `<div class="row" style="cursor:pointer" onclick="showStock('${h.code}')">
+          <span><span class="name">${h.name}</span><br><span style="font-size:11px;color:#999">${h.code}</span></span>
+          <span><span class="price ${h.change_pct>0?'up':'down'}">${h.price.toFixed(2)}</span> <span class="tag ${h.change_pct>0?'up':'down'}">${h.change_pct>0?'+':''}${h.change_pct.toFixed(2)}%</span></span>
+        </div>`
+      ).join('');
+    } else { pnlCard.style.display = 'none'; }
+
+    // Tech
+    const techCard = document.getElementById('techCard');
+    const techList = document.getElementById('techList');
+    const tk = Object.keys(d.tech_data || {});
+    if (tk.length) {
+      techCard.style.display = 'block';
+      techList.innerHTML = tk.map(code => {
+        const t = d.tech_data[code];
+        const h = (d.holdings||[]).find(x=>x.code===code);
+        return `<div class="card" style="padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <b>${h?h.name:code}</b>
+            <span class="tag ${t.bias==='偏多'?'up':t.bias==='偏空'?'down':'neutral'}">${t.bias}</span>
+          </div>
+          <div class="tech-grid">
+            <div class="tech-item"><div class="label">均线</div><div class="value" style="font-size:13px">${t.ma_status}</div></div>
+            <div class="tech-item"><div class="label">RSI</div><div class="value">${t.rsi}</div></div>
+            <div class="tech-item"><div class="label">支撑</div><div class="value">${t.support}</div></div>
+            <div class="tech-item"><div class="label">压力</div><div class="value">${t.resistance}</div></div>
+            <div class="tech-item"><div class="label">MACD</div><div class="value" style="font-size:13px">${t.macd_trend}</div></div>
+          </div>
+        </div>`;
+      }).join('');
+    } else techCard.style.display = 'none';
+
+    document.getElementById('emptyHint').style.display = (!d.holdings || !d.holdings.length) ? 'block' : 'none';
+  }).catch(() => {});
+}
+
+// === Holdings ===
+let holdings = [];
+
+function loadHoldings() {
+  api('GET', '/holdings').then(h => {
+    holdings = h;
+    const el = document.getElementById('holdingsTable');
+    const empty = document.getElementById('holdingsEmpty');
+    if (!h.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    el.innerHTML = `<table><tr><th>名称</th><th>持仓</th><th>成本</th><th></th></tr>${h.map(x =>
+      `<tr>
+        <td><b>${x.name}</b><br><span style="font-size:11px;color:#999">${x.code}</span></td>
+        <td>${x.shares}股</td>
+        <td>${x.cost_per_share}</td>
+        <td><button class="btn-sm" onclick="showStock('${x.code}')">分析</button> <button class="btn-danger" onclick="deleteHolding(${x.id})">删</button></td>
+      </tr>`
+    ).join('')}</table>`;
+  }).catch(() => {});
+}
+
+function showHoldingForm(data) {
+  const isEdit = !!data;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-title">${isEdit ? '编辑持仓' : '添加持仓'}</div>
+    <form onsubmit="return saveHolding(this, ${isEdit ? data.id : 'null'})">
+      <div class="form-row">
+        <div class="form-group"><label>股票代码</label><input id="f_code" value="${isEdit?data.code:''}" required></div>
+        <div class="form-group"><label>名称</label><input id="f_name" value="${isEdit?data.name:''}" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>交易所</label><select id="f_market"><option value="sz" ${isEdit&&data.market==='sz'?'selected':''}>深圳 sz</option><option value="sh" ${isEdit&&data.market==='sh'?'selected':''}>上海 sh</option></select></div>
+        <div class="form-group"><label>持仓股数</label><input type="number" id="f_shares" value="${isEdit?data.shares:''}" required></div>
+      </div>
+      <div class="form-group"><label>成本价</label><input type="number" step="0.01" id="f_cost" value="${isEdit?data.cost_per_share:''}" required></div>
+      <div class="form-row">
+        <button type="submit" class="btn btn-primary" style="flex:1">保存</button>
+        <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button>
+      </div>
+    </form>`;
+  document.getElementById('modal').classList.add('show');
+}
+
+function saveHolding(form, id) {
+  const d = {code: document.getElementById('f_code').value, name: document.getElementById('f_name').value, market: document.getElementById('f_market').value, shares: parseInt(document.getElementById('f_shares').value), cost_per_share: parseFloat(document.getElementById('f_cost').value)};
+  const p = id ? api('PUT', `/holdings/${id}`, d) : api('POST', '/holdings', d);
+  p.then(() => { closeModal(); loadHoldings(); loadDashboard(); });
+  return false;
+}
+
+function deleteHolding(id) {
+  if (!confirm('确定删除？')) return;
+  api('DELETE', `/holdings/${id}`).then(() => { loadHoldings(); loadDashboard(); });
+}
+
+// === Stock Detail ===
+function showStock(code) {
+  api('GET', `/analysis/detail/${code}`).then(d => {
+    if (!d || !d.price) { alert('暂无数据'); return; }
+    const bulls = (d.bull_signals||[]).map(s => `<span class="signal bull">${s}</span>`).join('');
+    const bears = (d.bear_signals||[]).map(s => `<span class="signal bear">${s}</span>`).join('');
+    document.getElementById('modalBody').innerHTML = `
+      <div class="modal-title">📈 ${d.name||code} 技术分析</div>
+      <div style="text-align:center;margin-bottom:16px">
+        <span style="font-size:32px;font-weight:700" class="${d.bias==='偏多'?'up':d.bias==='偏空'?'down':''}">${d.price.toFixed(2)}</span>
+        <span class="tag ${d.bias==='偏多'?'up':d.bias==='偏空'?'down':'neutral'}" style="font-size:16px;padding:4px 16px;margin-left:8px">${d.bias}</span>
+      </div>
+      <div class="tech-grid" style="margin-bottom:12px">
+        <div class="tech-item"><div class="label">MA5</div><div class="value">${d.mas?.ma5?.toFixed(2)||'-'}</div></div>
+        <div class="tech-item"><div class="label">MA10</div><div class="value">${d.mas?.ma10?.toFixed(2)||'-'}</div></div>
+        <div class="tech-item"><div class="label">MA20</div><div class="value">${d.mas?.ma20?.toFixed(2)||'-'}</div></div>
+        <div class="tech-item"><div class="label">RSI</div><div class="value">${d.rsi?.toFixed(1)||'-'}</div></div>
+        <div class="tech-item"><div class="label">支撑</div><div class="value">${d.support?.toFixed(1)||'-'}</div></div>
+        <div class="tech-item"><div class="label">压力</div><div class="value">${d.resistance?.toFixed(1)||'-'}</div></div>
+      </div>
+      ${bulls ? `<div style="margin-bottom:8px"><b style="font-size:13px">✅ 多头信号</b><div class="signal-list" style="margin-top:6px">${bulls}</div></div>` : ''}
+      ${bears ? `<div><b style="font-size:13px">⚠️ 空头信号</b><div class="signal-list" style="margin-top:6px">${bears}</div></div>` : ''}
+      <div style="margin-top:16px"><button class="btn btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>`;
+    document.getElementById('modal').classList.add('show');
+  }).catch(() => alert('获取分析失败'));
+}
+
+// === Settings ===
+function loadSettings() {
+  api('GET', '/auth/me').then(u => {
+    document.getElementById('userDetail').textContent = `昵称: ${u.nickname || '未设置'} | ID: ${u.id}`;
+  }).catch(() => {});
+  api('GET', '/notify/config').then(c => {
+    document.getElementById('wechatUrl').value = c.wechat_webhook || '';
+    document.getElementById('dingtalkUrl').value = c.dingtalk_webhook || '';
+    document.getElementById('atMobiles').value = (c.at_mobiles||[]).join(',');
+  }).catch(() => {});
+}
+
+function saveNotify() {
+  api('PUT', '/notify/config', {
+    wechat_webhook: document.getElementById('wechatUrl').value,
+    dingtalk_webhook: document.getElementById('dingtalkUrl').value,
+    at_mobiles: document.getElementById('atMobiles').value.split(',').map(s=>s.trim()).filter(Boolean)
+  }).then(() => alert('保存成功')).catch(() => alert('保存失败'));
+}
+
+function showSettings() { switchTab('settings'); }
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  if (token) {
+    showApp();
+    loadDashboard(); loadHoldings(); loadSettings();
+  } else showLogin();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<view class="container">
+  <!-- 添加持仓按钮 -->
+  <button class="btn-primary" bindtap="showAddForm" wx:if="{{!showForm}}">+ 添加持仓</button>
+
+  <!-- 持仓表单 -->
+  <view class="card" wx:if="{{showForm}}">
+    <view class="card-title">{{editing ? '编辑持仓' : '添加持仓'}}</view>
+    <view class="input-group">
+      <label>股票代码</label>
+      <input placeholder="如 002920" value="{{form.code}}" bindinput="onFieldChange" data-field="code"/>
+    </view>
+    <view class="input-group">
+      <label>股票名称</label>
+      <input placeholder="如 德赛西威" value="{{form.name}}" bindinput="onFieldChange" data-field="name"/>
+    </view>
+    <view class="input-group">
+      <label>交易所</label>
+      <picker range="{{markets}}" value="{{form.marketIndex}}" bindchange="onMarketChange">
+        <view>{{markets[form.marketIndex] || '请选择'}}</view>
+      </picker>
+    </view>
+    <view class="input-group">
+      <label>持仓股数</label>
+      <input type="number" placeholder="如 600" value="{{form.shares}}" bindinput="onFieldChange" data-field="shares"/>
+    </view>
+    <view class="input-group">
+      <label>成本价</label>
+      <input type="digit" placeholder="如 112.00" value="{{form.cost_per_share}}" bindinput="onFieldChange" data-field="cost_per_share"/>
+    </view>
+    <view class="btn-row">
+      <button class="btn-primary" style="flex:1" bindtap="saveHolding">保存</button>
+      <button class="btn-cancel" style="flex:1;margin-left:20rpx" bindtap="cancelForm">取消</button>
+    </view>
+  </view>
+
+  <!-- 持仓列表 -->
+  <view class="card" wx:for="{{holdings}}" wx:key="id">
+    <view class="holding-header">
+      <view>
+        <text class="holding-name">{{item.name}}</text>
+        <text class="holding-code">{{item.code}}.{{item.market}}</text>
+      </view>
+      <view class="holding-actions">
+        <text class="action-btn edit" bindtap="editHolding" data-id="{{item.id}}">编辑</text>
+        <text class="action-btn delete" bindtap="deleteHolding" data-id="{{item.id}}">删除</text>
+      </view>
+    </view>
+    <view class="holding-detail">
+      <text>持仓 {{item.shares}} 股 | 均价 {{item.cost_per_share}} 元</text>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{holdings.length === 0 && !showForm}}">
+    <text>还没有持仓，点击上方按钮添加</text>
+  </view>
+</view>

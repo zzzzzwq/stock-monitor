@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  stock-monitor:
+    build: .
+    container_name: stock-monitor
+    restart: unless-stopped
+    expose:
+      - "8080"
+    volumes:
+      - ./data:/app/data      # 数据库持久化
+      - ./logs:/app/logs      # 日志持久化
+      - ./config:/app/config  # 配置文件
+    environment:
+      - TZ=Asia/Shanghai
+      - DB_PATH=/app/data/stock_monitor.db
+      - JWT_SECRET=${JWT_SECRET:?请设置 JWT_SECRET 环境变量}
+      - WECHAT_APPID=${WECHAT_APPID:-}
+      - WECHAT_SECRET=${WECHAT_SECRET:-}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

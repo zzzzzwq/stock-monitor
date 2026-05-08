@@ -1,0 +1,38 @@
+{
+  "description": "盯盘助手 - A股盯盘分析工具",
+  "packOptions": {
+    "ignore": [
+      { "type": "file", "value": "test_api.py" },
+      { "type": "file", "value": "deploy.sh" }
+    ]
+  },
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "preloadBackgroundData": false,
+    "minified": true,
+    "newFeature": true,
+    "coverView": true,
+    "nodeModules": false,
+    "autoAudits": false,
+    "showShadowRootInWxmlPanel": true,
+    "scopeDataCheck": false,
+    "uglifyFileName": false,
+    "checkInvalidKey": true,
+    "checkSiteMap": true,
+    "uploadWithSourceMap": true,
+    "compileHotReLoad": false,
+    "lazyloadPlaceholderEnable": false,
+    "useMultiFrameRuntime": true,
+    "useApiHook": true,
+    "useApiHostProcess": true,
+    "babelSetting": { "ignore": [], "disablePlugins": [], "outputPath": "" }
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.0.0",
+  "appid": "请在微信公众平台注册小程序后填写",
+  "projectname": "stock-monitor-weapp",
+  "condition": {}
+}

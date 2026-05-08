@@ -1,0 +1,38 @@
+<view class="container">
+  <!-- 用户信息 -->
+  <view class="card">
+    <view class="card-title">👤 用户信息</view>
+    <view class="user-info">
+      <text class="user-name">{{userInfo.nickname || '未设置'}}</text>
+      <text class="user-id">ID: {{userInfo.id}}</text>
+    </view>
+  </view>
+
+  <!-- 通知配置 -->
+  <view class="card">
+    <view class="card-title">🔔 通知配置</view>
+    <view class="input-group">
+      <label>企业微信 Webhook URL</label>
+      <input placeholder="输入企业微信机器人地址" value="{{wechatUrl}}" bindinput="onWechatInput"/>
+    </view>
+    <view class="input-group">
+      <label>钉钉 Webhook URL</label>
+      <input placeholder="输入钉钉机器人地址" value="{{dingtalkUrl}}" bindinput="onDingtalkInput"/>
+    </view>
+    <view class="input-group">
+      <label>@手机号（逗号分隔）</label>
+      <input placeholder="如 13800138000" value="{{atMobilesStr}}" bindinput="onMobilesInput"/>
+    </view>
+    <button class="btn-primary" bindtap="saveNotify">保存通知配置</button>
+  </view>
+
+  <!-- 关于 -->
+  <view class="card">
+    <view class="card-title">ℹ️ 关于</view>
+    <view class="about-item">
+      <text>盯盘助手 v1.0</text>
+      <text class="about-desc">基于 Python + Flask + 微信小程序</text>
+    </view>
+    <button class="btn-cancel" style="margin-top:24rpx;width:100%" bindtap="logout">退出登录</button>
+  </view>
+</view>

@@ -1,0 +1,9 @@
+akshare>=1.18.0
+Flask>=3.0
+flask-cors>=4.0
+pandas>=2.0
+requests>=2.31
+apscheduler>=3.10
+pyjwt>=2.8
+bcrypt>=4.1
+sqlalchemy>=2.0

@@ -1,0 +1,22 @@
+<view class="login-container">
+  <view class="logo-area">
+    <text class="logo-icon">📊</text>
+    <text class="logo-title">盯盘助手</text>
+    <text class="logo-desc">A股智能盯盘分析工具</text>
+  </view>
+
+  <view class="login-form">
+    <view class="input-group" wx:if="{{showDevLogin}}">
+      <label>昵称</label>
+      <input placeholder="输入昵称" bindinput="onNicknameInput" value="{{nickname}}"/>
+    </view>
+
+    <button class="btn-primary" bindtap="onLogin">
+      {{showDevLogin ? '登录' : '微信一键登录'}}
+    </button>
+
+    <text class="dev-link" bindtap="toggleDevLogin">
+      {{showDevLogin ? '← 返回微信登录' : '开发环境登录 →'}}
+    </text>
+  </view>
+</view>

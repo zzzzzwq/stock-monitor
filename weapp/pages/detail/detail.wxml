@@ -1,0 +1,84 @@
+<view class="container">
+  <view class="card" wx:if="{{analysis}}">
+    <view class="card-title">📈 {{name}} ({{code}}) 技术分析</view>
+    <view class="detail-grid">
+      <view class="detail-item">
+        <text class="detail-label">当前价格</text>
+        <text class="detail-value price {{analysis.bias === '偏多' ? 'up' : 'down'}}">{{analysis.price.toFixed(2)}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">综合判断</text>
+        <text class="tag {{analysis.bias === '偏多' ? 'up' : (analysis.bias === '偏空' ? 'down' : '')}}" style="font-size:28rpx;padding:8rpx 20rpx">
+          {{analysis.bias}}
+        </text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 均线 -->
+  <view class="card" wx:if="{{analysis && analysis.mas}}">
+    <view class="card-title">📉 均线系统</view>
+    <view class="detail-grid">
+      <view class="detail-item">
+        <text class="detail-label">MA5</text>
+        <text class="detail-value">{{analysis.mas.ma5.toFixed(2)}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">MA10</text>
+        <text class="detail-value">{{analysis.mas.ma10.toFixed(2)}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">MA20</text>
+        <text class="detail-value">{{analysis.mas.ma20.toFixed(2)}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">均线状态</text>
+        <text class="detail-value">{{analysis.ma_status}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- MACD & RSI -->
+  <view class="card" wx:if="{{analysis}}">
+    <view class="card-title">📊 技术指标</view>
+    <view class="detail-grid">
+      <view class="detail-item">
+        <text class="detail-label">MACD 趋势</text>
+        <text class="detail-value tag {{analysis.macd_trend === '偏多' ? 'up' : 'down'}}">
+          {{analysis.macd_trend}}
+        </text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">RSI</text>
+        <text class="detail-value">{{analysis.rsi}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">支撑位</text>
+        <text class="detail-value">{{analysis.support.toFixed(2)}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">压力位</text>
+        <text class="detail-value">{{analysis.resistance.toFixed(2)}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 信号 -->
+  <view class="card" wx:if="{{analysis && analysis.bull_signals && analysis.bull_signals.length > 0}}">
+    <view class="card-title">✅ 多头信号</view>
+    <view class="signal-list">
+      <text class="signal-item" wx:for="{{analysis.bull_signals}}" wx:key="this">✓ {{item}}</text>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{analysis && analysis.bear_signals && analysis.bear_signals.length > 0}}">
+    <view class="card-title">⚠️ 空头信号</view>
+    <view class="signal-list">
+      <text class="signal-item bear" wx:for="{{analysis.bear_signals}}" wx:key="this">✗ {{item}}</text>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!analysis && !loading}}">
+    <text>暂无分析数据</text>
+  </view>
+</view>

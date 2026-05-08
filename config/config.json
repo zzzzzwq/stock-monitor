@@ -1,0 +1,59 @@
+{
+  "general": {
+    "timezone": "Asia/Shanghai",
+    "log_dir": "logs",
+    "data_cache_ttl_hours": 2
+  },
+
+  "holdings": [
+    {
+      "code": "002920",
+      "name": "德赛西威",
+      "market": "sz",
+      "shares": 600,
+      "cost_per_share": 112.0,
+      "related_boards": ["汽车零部件", "无人驾驶"]
+    },
+    {
+      "code": "603501",
+      "name": "韦尔股份",
+      "market": "sh",
+      "shares": 200,
+      "cost_per_share": 108.0,
+      "related_boards": ["半导体", "AI芯片"]
+    }
+  ],
+
+  "indices": [
+    {"code": "sh000001", "sina_code": "sh000001", "name": "上证指数"},
+    {"code": "sz399001", "sina_code": "sz399001", "name": "深证成指"},
+    {"code": "sz399006", "sina_code": "sz399006", "name": "创业板指"},
+    {"code": "sh000688", "sina_code": "sh000688", "name": "科创50"}
+  ],
+
+  "related_boards": [
+    "汽车零部件", "半导体", "无人驾驶", "AI芯片"
+  ],
+
+  "notify": {
+    "wechat_webhook": "",
+    "dingtalk_webhook": "",
+    "error_webhook": "",
+    "at_mobiles": [],
+    "at_all_on_error": true
+  },
+
+  "schedules": {
+    "enabled_slots": ["0830", "0925", "0935", "1130", "1305", "1500", "2000", "2200"],
+    "cron_expressions": {
+      "0830": "30 8 * * 1-5",
+      "0925": "25 9 * * 1-5",
+      "0935": "35 9 * * 1-5",
+      "1130": "30 11 * * 1-5",
+      "1305": "5 13 * * 1-5",
+      "1500": "0 15 * * 1-5",
+      "2000": "0 20 * * 1-5",
+      "2200": "0 22 * * 1-5"
+    }
+  }
+}

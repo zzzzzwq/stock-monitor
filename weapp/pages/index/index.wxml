@@ -1,0 +1,68 @@
+<view class="container">
+  <!-- 状态栏 -->
+  <view class="status-bar {{isTradingDay ? 'trading' : 'closed'}}">
+    {{isTradingDay ? '📈 交易中' : '📊 非交易时间'}}
+  </view>
+
+  <!-- 大盘指数 -->
+  <view class="card" wx:if="{{indices.length > 0}}">
+    <view class="card-title">📊 大盘指数</view>
+    <view class="index-row" wx:for="{{indices}}" wx:key="name">
+      <text class="index-name">{{item.name}}</text>
+      <text class="price {{item.change_pct > 0 ? 'up' : (item.change_pct < 0 ? 'down' : 'neutral')}}">
+        {{item.price.toFixed(2)}}
+      </text>
+      <text class="tag {{item.change_pct > 0 ? 'up' : 'down'}}">
+        {{item.change_pct > 0 ? '+' : ''}}{{item.change_pct.toFixed(2)}}%
+      </text>
+    </view>
+  </view>
+
+  <!-- 总盈亏 -->
+  <view class="card" wx:if="{{holdings.length > 0}}">
+    <view class="card-title">💰 持仓概览</view>
+    <view class="total-pnl {{totalPnl >= 0 ? 'up' : 'down'}}">
+      总盈亏: {{totalPnl >= 0 ? '+' : ''}}{{totalPnl}} 元
+    </view>
+    <view class="holding-row" wx:for="{{holdings}}" wx:key="code"
+          bindtap="goDetail" data-code="{{item.code}}">
+      <view class="holding-info">
+        <text class="holding-name">{{item.name}}</text>
+        <text class="holding-code">{{item.code}}</text>
+      </view>
+      <view class="holding-price">
+        <text class="price {{item.change_pct > 0 ? 'up' : (item.change_pct < 0 ? 'down' : 'neutral')}}">
+          {{item.price.toFixed(2)}}
+        </text>
+        <text class="tag {{item.change_pct > 0 ? 'up' : 'down'}}">
+          {{item.change_pct > 0 ? '+' : ''}}{{item.change_pct.toFixed(2)}}%
+        </text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 无持仓提示 -->
+  <view class="empty-state" wx:if="{{holdings.length === 0 && !loading}}">
+    <text>暂无持仓数据</text>
+    <button class="btn-primary" style="margin-top:30rpx;width:auto;padding:16rpx 48rpx"
+            bindtap="goAddHolding">添加持仓</button>
+  </view>
+
+  <!-- 技术信号 -->
+  <view class="card" wx:if="{{techKeys.length > 0}}">
+    <view class="card-title">📈 技术信号</view>
+    <view class="tech-row" wx:for="{{techKeys}}" wx:key="this">
+      <view class="tech-header">
+        <text class="holding-name">{{techData[item].name}}</text>
+        <text class="tag {{techData[item].bias === '偏多' ? 'up' : (techData[item].bias === '偏空' ? 'down' : '')}}">
+          {{techData[item].bias}}
+        </text>
+      </view>
+      <view class="tech-detail">
+        <text>{{techData[item].ma_status}} | RSI: {{techData[item].rsi}}</text>
+        <text>支撑 {{techData[item].support}} | 压力 {{techData[item].resistance}}</text>
+        <text>MACD: {{techData[item].macd_trend}}</text>
+      </view>
+    </view>
+  </view>
+</view>
