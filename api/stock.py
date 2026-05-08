@@ -48,7 +48,14 @@ def stock_search():
 @require_auth
 def stock_diagnose(code: str):
     """个股综合诊断 — 100分制评分"""
-    market = "sh" if code.startswith("6") else "sz"
+    if code.startswith(("6", "9")):
+        market = "sh"
+    elif code.startswith(("0", "3", "2")):
+        market = "sz"
+    elif code.startswith(("4", "8")):
+        market = "bj"
+    else:
+        market = "sz"
     live = get_holdings_quotes([{"code": code, "market": market}])
     key = f"{market}{code}"
     ld = live.get(key, {})

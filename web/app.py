@@ -75,5 +75,4 @@ def index():
 
 @app.route("/app")
 def app_page():
-    from flask import render_template
     return render_template("app.html")
