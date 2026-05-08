@@ -174,6 +174,26 @@ def get_index_tech(symbol: str = "sh000001") -> dict:
         return {}
 
 
+def get_stock_boards(code: str) -> list[str]:
+    """获取个股所属板块"""
+    boards = set()
+    try:
+        df = ak.stock_board_industry_cons_em(symbol=code)
+        if df is not None and not df.empty:
+            for _, row in df.iterrows():
+                boards.add(str(row.iloc[1]))
+    except Exception:
+        pass
+    try:
+        df = ak.stock_board_concept_cons_em(symbol=code)
+        if df is not None and not df.empty:
+            for _, row in df.iterrows():
+                boards.add(str(row.iloc[1]))
+    except Exception:
+        pass
+    return list(boards)[:5]
+
+
 def get_news(code: str) -> list[dict]:
     """获取个股新闻"""
     try:

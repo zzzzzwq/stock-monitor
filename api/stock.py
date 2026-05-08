@@ -7,19 +7,40 @@ from auth.decorators import require_auth
 
 from data.stock_list import search_stocks
 from data.sina import get_holdings_quotes
-from data.akshare_data import get_history, get_related_board_changes
+from data.akshare_data import get_history, get_related_board_changes, get_stock_boards
+from data.stock_list import get_stock_list
 from analysis.technicals import analyze_stock
 
 logger = logging.getLogger(__name__)
 
 
+@api_bp.route("/stock/info", methods=["GET"])
+def stock_info():
+    """获取个股完整信息（代码+名称+市场+板块），用于添加持仓自动填充"""
+    code = request.args.get("code", "").strip()
+    if not code:
+        return jsonify({"error": "缺少code参数"}), 400
+
+    stocks = get_stock_list()
+    stock = None
+    for s in stocks:
+        if s["code"] == code:
+            stock = dict(s)
+            break
+    if not stock:
+        return jsonify({"error": f"未找到代码 {code}"}), 404
+
+    stock["boards"] = get_stock_boards(code)
+    return jsonify(stock)
+
+
 @api_bp.route("/stock/search", methods=["GET"])
 def stock_search():
-    """搜索股票"""
+    """搜索股票（支持模糊匹配，输入1显示所有1开头的股票）"""
     q = request.args.get("q", "").strip()
-    if not q:
+    if not q or len(q) < 1:
         return jsonify([])
-    results = search_stocks(q, limit=15)
+    results = search_stocks(q, limit=20)
     return jsonify(results)
 
 

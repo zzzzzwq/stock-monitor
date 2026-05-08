@@ -71,7 +71,7 @@ def get_stock_list(force_refresh: bool = False) -> list[dict]:
     return _stocks
 
 
-def search_stocks(query: str, limit: int = 10) -> list[dict]:
+def search_stocks(query: str, limit: int = 20) -> list[dict]:
     """搜索股票（支持代码或名称模糊匹配）"""
     if not query or len(query.strip()) < 1:
         return []
@@ -79,10 +79,19 @@ def search_stocks(query: str, limit: int = 10) -> list[dict]:
     stocks = get_stock_list()
     results = []
     for s in stocks:
-        if q == s["code"] or s["code"].startswith(q) or q in s["name"]:
+        # 精确代码匹配、代码包含、名称包含
+        if q == s["code"] or q in s["code"] or q in s["name"].lower():
             results.append(s)
             if len(results) >= limit:
                 break
-    # 代码匹配优先
-    results.sort(key=lambda x: (0 if x["code"].startswith(q) else 1, x["code"]))
-    return results
+    # 排序：精确匹配 > 代码开头匹配 > 代码包含 > 名称匹配
+    def sort_key(x):
+        if q == x["code"]:
+            return 0
+        if x["code"].startswith(q):
+            return 1
+        if q in x["code"]:
+            return 2
+        return 3
+    results.sort(key=lambda x: (sort_key(x), x["code"]))
+    return results[:limit]

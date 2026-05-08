@@ -114,15 +114,7 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
 
 <div class="header">
   <h1>📊 盯盘助手</h1>
-  <div style="display:flex;align-items:center;gap:10px">
-    <div style="position:relative">
-      <input id="stockSearch" placeholder="搜索股票"
-        style="width:160px;padding:6px 14px;border-radius:20px;border:1px solid var(--card-border);background:rgba(255,255,255,.6);font-size:13px;margin:0;font-family:inherit;transition:all .2s"
-        oninput="onStockSearch(this.value)" onblur="setTimeout(()=>document.getElementById('searchResults').style.display='none',300)" onfocus="if(this.value)onStockSearch(this.value)">
-      <div id="searchResults" style="display:none;position:absolute;top:100%;right:0;width:300px;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:12px;border:1px solid var(--card-border);box-shadow:var(--shadow);z-index:999;max-height:360px;overflow-y:auto;margin-top:4px"></div>
-    </div>
-    <span class="user-info" id="userInfo" onclick="switchTab('settings')">未登录</span>
-  </div>
+  <span class="user-info" id="userInfo" onclick="switchTab('settings')">未登录</span>
 </div>
 
 <div class="container" id="loginScreen">
@@ -162,7 +154,14 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
   <div class="container">
     <!-- DASHBOARD PAGE -->
     <div id="pageDashboard" class="page active">
-      <div id="statusBar" class="card" style="padding:10px 16px;font-size:13px;text-align:center"></div>
+      <div id="statusBar" class="card" style="padding:10px 16px;font-size:13px;text-align:center"></div><div class="card" style="padding:10px 14px;margin-bottom:10px">
+      <div style="position:relative">
+        <input id="stockSearch" placeholder="输入股票代码或名称搜索，如 600519 / 贵州茅台 / 002920"
+          style="width:100%;padding:12px 16px;border-radius:12px;border:1px solid var(--card-border);background:rgba(255,255,255,.6);font-size:15px;margin:0;font-family:inherit;box-sizing:border-box;transition:all .2s"
+          oninput="onStockSearch(this.value)" onblur="setTimeout(()=>document.getElementById('searchResults').style.display='none',400)" onfocus="if(this.value)onStockSearch(this.value)">
+        <div id="searchResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:12px;border:1px solid var(--card-border);box-shadow:0 8px 28px rgba(58,76,146,.15);z-index:999;max-height:400px;overflow-y:auto;margin-top:4px"></div>
+      </div>
+    </div>
 
       <!-- 报告容器 -->
       <div id="reportLoading" class="loading" style="padding:40px">加载中...</div>
@@ -383,10 +382,10 @@ function refreshAll() {
 
 // === 主报告：表格 + 总结 ===
 function loadReport() {
-  api('GET', '/analysis/report').then(d => {
-    const rc = document.getElementById('reportContent');
-    const rl = document.getElementById('reportLoading');
-    const re = document.getElementById('reportEmpty');
+  api('GET', '/analysis/report').then(function(d) {
+    var rc = document.getElementById('reportContent');
+    var rl = document.getElementById('reportLoading');
+    var re = document.getElementById('reportEmpty');
 
     if (!d.holdings || !d.holdings.length) {
       rl.style.display = 'none';
@@ -486,7 +485,10 @@ function loadReport() {
         ec.innerHTML = html;
       }
     }).catch(() => {});
-  }).catch(() => {});
+  }).catch(function() {
+    document.getElementById('reportLoading').style.display = 'none';
+    document.getElementById('reportEmpty').style.display = 'block';
+  });
 }
 
 // === 搜索 + 诊断 ===
@@ -547,7 +549,10 @@ function loadEnvironment() {
   api('GET', '/analysis/market').then(d => {
     const flow = d.sentiment?.fund_flow;
     if (!flow) return;
-  }).catch(() => {});
+  }).catch(function() {
+    document.getElementById('reportLoading').style.display = 'none';
+    document.getElementById('reportEmpty').style.display = 'block';
+  });
 }
 
 // === 组合分析 ===
@@ -626,7 +631,10 @@ function loadPortfolio() {
       document.getElementById('portfolioSuggestionsContent').innerHTML =
         sugs.map(s => '<div class="advice-box" style="margin-bottom:8px;font-size:13px">💡 '+s+'</div>').join('');
     }
-  }).catch(() => { l.style.display='none'; e.style.display='block'; });
+  }).catch(function() { 
+    document.getElementById('portfolioLoading').style.display = 'none'; 
+    document.getElementById('portfolioEmpty').style.display = 'block'; 
+  });
 }
 
 // === Holdings ===
@@ -639,46 +647,75 @@ function loadHoldings() {
     el.innerHTML = `<table><tr><th>名称</th><th>持仓</th><th>成本</th><th></th></tr>${h.map(x =>
       `<tr><td><b>${x.name}</b><br><span style="font-size:11px;color:#999">${x.code}</span></td><td>${x.shares}股</td><td>${x.cost_per_share}</td><td><button class="btn-sm" onclick="showStock('${x.code}')">分析</button> <button class="btn-danger" onclick="deleteHolding(${x.id})">删</button></td></tr>`
     ).join('')}</table>`;
-  }).catch(() => {});
+  }).catch(function() {
+    document.getElementById('reportLoading').style.display = 'none';
+    document.getElementById('reportEmpty').style.display = 'block';
+  });
 }
-var BOARD_OPTIONS = ['半导体','AI芯片','汽车零部件','无人驾驶','新能源','光伏','消费电子','医药','白酒','食品饮料','金融','房地产','军工','化工','有色金属','钢铁','煤炭','电力','通信','计算机','传媒','建筑','交通运输','轻工制造','机械设备'];
-
 function showHoldingForm(data) {
-	  var isEdit = !!data;
-	  var curBoards = [];
-	  if (isEdit && data.related_boards) {
-	    try { curBoards = JSON.parse(data.related_boards); } catch(e) {}
-	  }
-	  var boardHtml = BOARD_OPTIONS.map(function(b) {
-	    var checked = curBoards.indexOf(b) >= 0 ? 'checked' : '';
-	    return '<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 6px 3px 0;cursor:pointer;font-size:12px;font-weight:400;background:rgba(148,163,184,.08);padding:4px 10px;border-radius:14px"><input type="checkbox" value="'+b+'" '+checked+' style="width:auto;margin:0">'+b+'</label>';
-	  }).join('');
-	  document.getElementById('modalBody').innerHTML = `
-	    <div class="modal-title">${isEdit ? '编辑持仓' : '添加持仓'}</div>
-	    <form onsubmit="return saveHolding(this, ${isEdit ? data.id : 'null'})">
-	      <div class="form-row"><div class="form-group"><label>代码</label><input id="f_code" value="${isEdit?data.code:''}" required></div>
-	      <div class="form-group"><label>名称</label><input id="f_name" value="${isEdit?data.name:''}" required></div></div>
-	      <div class="form-row"><div class="form-group"><label>交易所</label><select id="f_market"><option value="sz" ${isEdit&&data.market==='sz'?'selected':''}>深圳 sz</option><option value="sh" ${isEdit&&data.market==='sh'?'selected':''}>上海 sh</option></select></div>
-	      <div class="form-group"><label>股数</label><input type="number" id="f_shares" value="${isEdit?data.shares:''}" required></div></div>
-	      <div class="form-group"><label>成本价</label><input type="number" step="0.01" id="f_cost" value="${isEdit?data.cost_per_share:''}" required></div>
-	      <div class="form-group" style="margin-bottom:10px">
-	        <label>所属板块（多选，用于组合分析）</label>
-	        <div style="display:flex;flex-wrap:wrap;gap:2px;padding:4px 0">${boardHtml}</div>
-	      </div>
-	      <div class="form-row"><button type="submit" class="btn btn-primary" style="flex:1">保存</button>
-	      <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button></div>
-	    </form>`;
-	  document.getElementById('modal').classList.add('show');
-	}
-	function saveHolding(form, id) {
-	  var checks = document.querySelectorAll('#modalBody input[type=checkbox]:checked');
-	  var boards = [];
-	  checks.forEach(function(c) { boards.push(c.value); });
-	  var d = {code: document.getElementById('f_code').value, name: document.getElementById('f_name').value, market: document.getElementById('f_market').value, shares: parseInt(document.getElementById('f_shares').value), cost_per_share: parseFloat(document.getElementById('f_cost').value), related_boards: boards};
-	  var p = id ? api('PUT', '/holdings/' + id, d) : api('POST', '/holdings', d);
-	  p.then(function() { closeModal(); loadHoldings(); refreshAll(); });
-	  return false;
-	}function deleteHolding(id) {
+  var isEdit = !!data;
+  document.getElementById('modalBody').innerHTML = \`
+    <div class="modal-title">\${isEdit ? '编辑持仓' : '添加持仓'}</div>
+    <div style="margin-bottom:14px">
+      <label>搜索股票</label>
+      <div style="position:relative">
+        <input id="f_stockSearch" placeholder="输入代码或名称搜索" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid var(--card-border);font-size:15px;font-family:inherit;box-sizing:border-box"
+          oninput="onStockSelect(this.value)" onblur="setTimeout(function(){document.getElementById('f_stockResults').style.display='none'},300)">
+        <div id="f_stockResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);border-radius:10px;border:1px solid var(--card-border);box-shadow:0 8px 28px rgba(58,76,146,.15);z-index:999;max-height:300px;overflow-y:auto;margin-top:2px"></div>
+      </div>
+    </div>
+    <form onsubmit="return saveHolding(this, \${isEdit ? data.id : 'null'})">
+      <div class="form-row">
+        <div class="form-group"><label>代码</label><input id="f_code" value="\${isEdit?data.code:''}" readonly style="background:rgba(148,163,184,.08)"></div>
+        <div class="form-group"><label>名称</label><input id="f_name" value="\${isEdit?data.name:''}" readonly style="background:rgba(148,163,184,.08)"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>交易所</label><input id="f_market" value="\${isEdit?data.market:''}" readonly style="background:rgba(148,163,184,.08)"></div>
+        <div class="form-group"><label>股数</label><input type="number" id="f_shares" value="\${isEdit?data.shares:''}" required></div>
+      </div>
+      <div class="form-group"><label>成本价</label><input type="number" step="0.01" id="f_cost" value="\${isEdit?data.cost_per_share:''}" required></div>
+      <div class="form-row"><button type="submit" class="btn btn-primary" style="flex:1">保存</button>
+      <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button></div>
+      <input type="hidden" id="f_boards" value="">
+    </form>\`;
+  document.getElementById('modal').classList.add('show');
+}
+function saveHolding(form, id) {
+  var d = {code: document.getElementById('f_code').value, name: document.getElementById('f_name').value, market: document.getElementById('f_market').value, shares: parseInt(document.getElementById('f_shares').value), cost_per_share: parseFloat(document.getElementById('f_cost').value)};
+  var boards = document.getElementById('f_boards').value;
+  if (boards) { try { d.related_boards = JSON.parse(boards); } catch(e) {} }
+  var p = id ? api('PUT', '/holdings/' + id, d) : api('POST', '/holdings', d);
+  p.then(function() { closeModal(); loadHoldings(); refreshAll(); });
+  return false;
+}
+function onStockSelect(q) {
+  if (!q || q.length < 1) { var el = document.getElementById('f_stockResults'); if(el)el.style.display='none'; return; }
+  api('GET', '/stock/search?q='+encodeURIComponent(q)).then(function(results) {
+    var el = document.getElementById('f_stockResults');
+    if (!results.length) { if(el)el.style.display='none'; return; }
+    el.innerHTML = results.map(function(s) {
+      return '<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(91,103,241,.06);display:flex;justify-content:space-between;align-items:center" ' +
+        'onmousedown="pickStock(\'' + s.code + '\',\'' + s.name + '\',\'' + s.market + '\')" ' +
+        'onmouseover="this.style.background=\'rgba(91,103,241,.06)\'" onmouseout="this.style.background=\'transparent\'">' +
+        '<span><b>' + s.name + '</b> <span style="color:var(--text3);font-size:12px">' + s.code + '</span></span>' +
+        '<span style="font-size:11px;color:var(--text3)">' + (s.market==='sh'?'沪':'深') + '</span></div>';
+    }).join('');
+    el.style.display = 'block';
+  }).catch(function() {});
+}
+function pickStock(code, name, market) {
+  document.getElementById('f_stockSearch').value = name + ' (' + code + ')';
+  document.getElementById('f_code').value = code;
+  document.getElementById('f_name').value = name;
+  document.getElementById('f_market').value = market;
+  document.getElementById('f_stockResults').style.display = 'none';
+  api('GET', '/stock/info?code=' + code).then(function(info) {
+    if (info && info.boards && info.boards.length) {
+      try { document.getElementById('f_boards').value = JSON.stringify(info.boards); } catch(e) {}
+    }
+  }).catch(function() {});
+}
+function deleteHolding(id) {
   if (!confirm('确定删除？')) return;
   api('DELETE', `/holdings/${id}`).then(() => { loadHoldings(); refreshAll(); });
 }
@@ -791,7 +828,10 @@ function showDiagnose(code, name) {
 // === Settings ===
 function loadSettings() {
   api('GET', '/auth/me').then(u => { document.getElementById('userDetail').textContent = `昵称: ${u.nickname||'未设置'} | ID: ${u.id}`; }).catch(() => {});
-  api('GET', '/notify/config').then(c => { document.getElementById('wechatUrl').value = c.wechat_webhook||''; document.getElementById('dingtalkUrl').value = c.dingtalk_webhook||''; document.getElementById('atMobiles').value = (c.at_mobiles||[]).join(','); }).catch(() => {});
+  api('GET', '/notify/config').then(c => { document.getElementById('wechatUrl').value = c.wechat_webhook||''; document.getElementById('dingtalkUrl').value = c.dingtalk_webhook||''; document.getElementById('atMobiles').value = (c.at_mobiles||[]).join(','); }).catch(function() {
+    document.getElementById('reportLoading').style.display = 'none';
+    document.getElementById('reportEmpty').style.display = 'block';
+  });
 }
 function saveNotify() {
   api('PUT', '/notify/config', {wechat_webhook: document.getElementById('wechatUrl').value, dingtalk_webhook: document.getElementById('dingtalkUrl').value, at_mobiles: document.getElementById('atMobiles').value.split(',').map(s=>s.trim()).filter(Boolean)}).then(() => alert('保存成功')).catch(() => alert('保存失败'));
