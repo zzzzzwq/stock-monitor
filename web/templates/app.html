@@ -53,11 +53,10 @@ tr:last-child td{border-bottom:none}
 .login-screen p{color:var(--text3);margin-bottom:36px;font-size:14px}
 .login-form{width:100%;max-width:320px}
 .empty-state{text-align:center;padding:48px 0;color:var(--text3);font-size:14px}
-.tab-bar{display:flex;background:rgba(255,255,255,.85);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-top:1px solid var(--card-border);position:sticky;bottom:0;z-index:100}
-.tab{flex:1;text-align:center;padding:10px 0 8px;font-size:11px;color:var(--text3);cursor:pointer;border:none;background:none;position:relative;transition:color .25s}
-.tab::after{content:'';position:absolute;bottom:0;left:25%;right:25%;height:3px;border-radius:3px;background:var(--primary-gradient);transform:scaleX(0);transition:transform .25s}
-.tab.active{color:var(--primary);font-weight:600}
-.tab.active::after{transform:scaleX(1)}
+.tab-bar{display:flex;gap:6px;padding:10px 0 8px;margin-bottom:4px;position:sticky;top:56px;z-index:90;background:rgba(244,246,252,.85);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+.tab{flex:1;text-align:center;padding:10px 0;font-size:14px;font-weight:500;color:var(--text3);cursor:pointer;border:none;background:rgba(148,163,184,.08);border-radius:10px;transition:all .25s}
+.tab:hover{background:rgba(148,163,184,.14);color:var(--text2)}
+.tab.active{background:var(--primary-gradient);color:#fff;font-weight:600;box-shadow:0 4px 12px rgba(91,103,241,.25)}
 .page{display:none}.page.active{display:block}
 .status-bar{text-align:center;padding:10px 16px;font-size:13px;border-radius:var(--radius-lg);margin-bottom:10px;font-weight:500;border:1px solid var(--card-border);background:rgba(255,255,255,.65);backdrop-filter:var(--blur)}
 .status-bar.open{background:rgba(16,185,129,.08);color:var(--green);border-color:rgba(16,185,129,.2)}
@@ -107,6 +106,7 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
 .status-bar.open{background:rgba(16,185,129,.1)}
 .flow-item,.tech-mini>div,.board-item,.holding-meta{background:rgba(148,163,184,.06)}
 .advice-box{background:linear-gradient(135deg,rgba(91,103,241,.1),rgba(124,84,217,.1))}
+.tab-bar{background:rgba(15,17,23,.85)}
 }
 </style>
 </head>
@@ -137,18 +137,18 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
       </div>
 
       <!-- 登录表单 -->
-      <form id="loginForm" onsubmit="return doPhoneLogin()" style="display:block">
+      <form id="loginForm" style="display:block">
         <input type="tel" id="loginPhone" placeholder="手机号" maxlength="11" required>
         <input type="password" id="loginPassword" placeholder="密码" required>
-        <button type="submit" class="btn btn-primary">登录</button>
+        <button type="button" class="btn btn-primary" onclick="doPhoneLogin()">登录</button>
       </form>
 
       <!-- 注册表单 -->
-      <form id="registerForm" onsubmit="return doRegister()" style="display:none">
+      <form id="registerForm" style="display:none">
         <input type="tel" id="regPhone" placeholder="手机号" maxlength="11" required>
         <input type="text" id="regNickname" placeholder="昵称（选填）">
         <input type="password" id="regPassword" placeholder="密码（至少6位）" required>
-        <button type="submit" class="btn btn-primary">注册</button>
+        <button type="button" class="btn btn-primary" onclick="doRegister()">注册</button>
       </form>
 
       <div style="text-align:center;margin-top:20px">
@@ -319,35 +319,39 @@ function switchAuthTab(tab) {
 }
 
 function doPhoneLogin() {
-  var phone = document.getElementById('loginPhone').value.trim();
-  var password = document.getElementById('loginPassword').value;
-  if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
-  if (!password) { alert('请输入密码'); return false; }
-  api('POST', '/auth/login', {phone: phone, password: password}).then(function(d) {
-    token = d.token; user = d.user; localStorage.setItem('token', token);
-    showApp(); refreshAll();
-  }).catch(function(e) {
-    var msg = (e && e.error) || '登录失败';
-    if (msg.indexOf('手机号或密码错误') >= 0) msg = '账户不存在或密码错误，请先注册';
-    alert(msg);
-  });
+  try {
+    var phone = document.getElementById('loginPhone').value.trim();
+    var password = document.getElementById('loginPassword').value;
+    if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
+    if (!password) { alert('请输入密码'); return false; }
+    api('POST', '/auth/login', {phone: phone, password: password}).then(function(d) {
+      token = d.token; user = d.user; localStorage.setItem('token', token);
+      showApp(); refreshAll();
+    }).catch(function(e) {
+      var msg = (e && e.error) || '登录失败';
+      if (msg.indexOf('手机号或密码错误') >= 0) msg = '账户不存在或密码错误，请先注册';
+      alert(msg);
+    });
+  } catch(e) { alert('登录出错: ' + e.message); }
   return false;
 }
 
 function doRegister() {
-  var phone = document.getElementById('regPhone').value.trim();
-  var password = document.getElementById('regPassword').value;
-  var nickname = document.getElementById('regNickname').value.trim() || '';
-  if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
-  if (!password || password.length < 6) { alert('密码至少6位'); return false; }
-  api('POST', '/auth/register', {phone: phone, password: password, nickname: nickname}).then(function(d) {
-    token = d.token; user = d.user; localStorage.setItem('token', token);
-    showApp(); refreshAll();
-  }).catch(function(e) {
-    var msg = (e && e.error) || '注册失败';
-    if (msg.indexOf('已注册') >= 0) msg = '该手机号已注册，请直接登录';
-    alert(msg);
-  });
+  try {
+    var phone = document.getElementById('regPhone').value.trim();
+    var password = document.getElementById('regPassword').value;
+    var nickname = document.getElementById('regNickname').value.trim() || '';
+    if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
+    if (!password || password.length < 6) { alert('密码至少6位'); return false; }
+    api('POST', '/auth/register', {phone: phone, password: password, nickname: nickname}).then(function(d) {
+      token = d.token; user = d.user; localStorage.setItem('token', token);
+      showApp(); refreshAll();
+    }).catch(function(e) {
+      var msg = (e && e.error) || '注册失败';
+      if (msg.indexOf('已注册') >= 0) msg = '该手机号已注册，请直接登录';
+      alert(msg);
+    });
+  } catch(e) { alert('注册出错: ' + e.message); }
   return false;
 }
 
@@ -733,7 +737,6 @@ function showStock(code) {
 }
 
 // === 股票搜索 + 诊断 ===
-let searchTimer = null;
 function onStockSearch(q) {
   clearTimeout(searchTimer);
   const el = document.getElementById('searchResults');
