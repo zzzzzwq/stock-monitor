@@ -114,7 +114,15 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
 
 <div class="header">
   <h1>📊 盯盘助手</h1>
-  <span class="user-info" id="userInfo" onclick="switchTab('settings')">未登录</span>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="position:relative">
+      <input id="stockSearch" placeholder="搜索股票"
+        style="width:160px;padding:6px 14px;border-radius:20px;border:1px solid var(--card-border);background:rgba(255,255,255,.6);font-size:13px;margin:0;font-family:inherit;transition:all .2s"
+        oninput="onStockSearch(this.value)" onblur="setTimeout(()=>document.getElementById('searchResults').style.display='none',300)" onfocus="if(this.value)onStockSearch(this.value)">
+      <div id="searchResults" style="display:none;position:absolute;top:100%;right:0;width:300px;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:12px;border:1px solid var(--card-border);box-shadow:var(--shadow);z-index:999;max-height:360px;overflow-y:auto;margin-top:4px"></div>
+    </div>
+    <span class="user-info" id="userInfo" onclick="switchTab('settings')">未登录</span>
+  </div>
 </div>
 
 <div class="container" id="loginScreen">
@@ -423,6 +431,59 @@ function loadReport() {
   }).catch(() => {});
 }
 
+// === 搜索 + 诊断 ===
+let searchTimer;
+
+function onStockSearch(query) {
+  clearTimeout(searchTimer);
+  const el = document.getElementById('searchResults');
+  if (!query || query.length < 1) { el.style.display = 'none'; return; }
+  searchTimer = setTimeout(() => {
+    api('GET', '/stock/search?q=' + encodeURIComponent(query)).then(results => {
+      if (!results.length) { el.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:13px">无匹配股票</div>'; el.style.display='block'; return; }
+      el.innerHTML = results.map(s =>
+        `<div style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(91,103,241,.06);transition:background .15s" onmouseover="this.style.background='rgba(91,103,241,.06)'" onmouseout="this.style.background=''" onclick="diagnoseStock('${s.code}')">
+          <span><b>${s.name}</b> <span style="color:var(--text3);font-size:12px">${s.code}</span></span>
+          <span style="font-size:11px;color:var(--text3)">${s.market}</span>
+        </div>`
+      ).join('');
+      el.style.display = 'block';
+    }).catch(() => {});
+  }, 200);
+}
+
+function diagnoseStock(code) {
+  document.getElementById('searchResults').style.display = 'none';
+  document.getElementById('stockSearch').value = '';
+  api('GET', '/stock/diagnose/' + code).then(d => {
+    if (!d || d.error) { alert(d?.error || '获取失败'); return; }
+    const tech = d.detail?.technology || {};
+    const vp = d.detail?.volume_price || {};
+    const market = d.detail?.market || {};
+
+    document.getElementById('modalBody').innerHTML = `
+      <div class="modal-title">${d.code} 诊断报告</div>
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:48px;font-weight:800;background:${d.score>=70?'linear-gradient(135deg,#10b981,#059669)':d.score>=55?'linear-gradient(135deg,#5b67f1,#7c54d9)':'linear-gradient(135deg,#f59e0b,#ef4444)'};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${d.score}</div>
+        <div style="color:var(--text3);font-size:13px">满分100 · ${d.level}</div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-bottom:16px">
+        <span style="font-size:24px;font-weight:700" class="${d.change_pct>0?'up':'down'}">${d.price.toFixed(2)}</span>
+        <span class="tag ${d.change_pct>0?'up':'down'}">${d.change_pct>0?'+':''}${d.change_pct}%</span>
+        <span class="tag neutral">${d.bias}</span>
+      </div>
+      <div class="tech-mini" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+        <div>技术<span class="v">${tech.score}/${tech.max}</span></div>
+        <div>量价<span class="v">${vp.score}/${vp.max}</span></div>
+        <div>市场<span class="v">${market.score}/${market.max}</span></div>
+      </div>
+      ${(d.signals?.bull||[]).length ? `<div style="margin-bottom:6px"><b style="font-size:12px">✅ 多头</b> ${d.signals.bull.map(s => `<span class="signal-chip bull">${s}</span>`).join(' ')}</div>` : ''}
+      ${(d.signals?.bear||[]).length ? `<div style="margin-bottom:6px"><b style="font-size:12px">⚠️ 空头</b> ${d.signals.bear.map(s => `<span class="signal-chip bear">${s}</span>`).join(' ')}</div>` : ''}
+      <div style="margin-top:16px"><button class="btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>`;
+    document.getElementById('modal').classList.add('show');
+  }).catch(() => alert('获取诊断失败'));
+}
+
 // === 大盘补充（用于 loadReport 之后） ===
 function loadEnvironment() {
   api('GET', '/analysis/market').then(d => {
@@ -520,6 +581,59 @@ function showStock(code) {
       <div style="margin-top:12px"><button class="btn btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>`;
     document.getElementById('modal').classList.add('show');
   }).catch(() => alert('获取分析失败'));
+}
+
+// === 股票搜索 + 诊断 ===
+let searchTimer = null;
+function onStockSearch(q) {
+  clearTimeout(searchTimer);
+  const el = document.getElementById('searchResults');
+  if (!q || q.length < 1) { el.style.display='none'; return; }
+  searchTimer = setTimeout(() => {
+    api('GET', '/stock/search?q='+encodeURIComponent(q)).then(results => {
+      if (!results.length) { el.style.display='none'; return; }
+      el.innerHTML = results.map(s =>
+        '<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(91,103,241,.06);display:flex;justify-content:space-between;align-items:center" ' +
+        'onmousedown="event.preventDefault();showDiagnose(\''+s.code+'\',\''+s.name+'\')" ' +
+        'onmouseover="this.style.background=\'rgba(91,103,241,.06)\'" onmouseout="this.style.background=\'transparent\'">' +
+        '<span><b>'+s.name+'</b> <span style="color:var(--text3);font-size:12px">'+s.code+'</span></span>' +
+        '<span style="font-size:11px;color:var(--text3)">'+(s.market==='sh'?'沪':'深')+'</span></div>'
+      ).join('');
+      el.style.display = 'block';
+    }).catch(() => {});
+  }, 300);
+}
+
+function showDiagnose(code, name) {
+  document.getElementById('searchResults').style.display='none';
+  document.getElementById('stockSearch').value='';
+  api('GET', '/stock/diagnose/'+code).then(d => {
+    if (!d || d.error) { alert(d?.error || '暂无数据'); return; }
+    const detail = d.detail || {};
+    const tech = detail.technology || {};
+    const vp = detail.volume_price || {};
+    const signals = d.signals || {};
+    const bulls = (signals.bull||[]).map(s => '<span class="signal-chip bull">'+s+'</span>').join('');
+    const bears = (signals.bear||[]).map(s => '<span class="signal-chip bear">'+s+'</span>').join('');
+
+    document.getElementById('modalBody').innerHTML =
+      '<div class="modal-title">🔍 '+name+' ('+code+') 诊断</div>' +
+      '<div style="text-align:center;margin-bottom:16px">' +
+        '<span style="font-size:48px;font-weight:800" class="'+(d.score>=70?'up':d.score>=55?'':d.score>=40?'down':'')+'">'+d.score+'</span>' +
+        '<span style="font-size:14px;color:var(--text3)">/100</span>' +
+        '<div style="margin-top:4px"><span class="tag '+(d.score>=70?'up':d.score>=55?'neutral':'down')+'" style="font-size:14px;padding:4px 16px">'+d.level+'</span></div>' +
+        '<div style="margin-top:8px;font-size:24px;font-weight:700" class="'+(d.change_pct>0?'up':'down')+'">'+d.price.toFixed(2)+' '+(d.change_pct>0?'+':'')+d.change_pct.toFixed(2)+'%</div>' +
+      '</div>' +
+      '<div class="tech-mini" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">' +
+        '<div>技术面<span class="v">'+tech.score+'/'+tech.max+'</span></div>' +
+        '<div>量价<span class="v">'+vp.score+'/'+vp.max+'</span></div>' +
+        '<div>诊断<span class="v '+(d.bias==='强势'?'up':d.bias==='偏空'?'down':'')+'">'+d.bias+'</span></div>' +
+      '</div>' +
+      (tech.items?.length ? '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">🔬 '+(tech.items||[]).join(' | ')+'</div>' : '') +
+      (bulls+bears ? '<div style="margin-bottom:8px">'+bulls+' '+bears+'</div>' : '') +
+      '<div style="margin-top:12px"><button class="btn btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>';
+    document.getElementById('modal').classList.add('show');
+  }).catch(() => alert('获取诊断失败'));
 }
 
 // === Settings ===
