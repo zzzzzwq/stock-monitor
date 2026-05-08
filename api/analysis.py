@@ -18,6 +18,7 @@ from data.akshare_data import (
 from analysis.technicals import analyze_stock
 from analysis.portfolio import calc_all_pnl
 from analysis.insights import generate_insight
+from analysis.portfolio_optimizer import analyze_portfolio
 from notify.formatter import format_market_report
 from scheduler.calendar import is_trading_day, next_trading_day
 
@@ -160,6 +161,41 @@ def analysis_summary():
         "total_pnl": total_pnl,
         "tech_data": tech_data,
     })
+
+
+@api_bp.route("/analysis/portfolio", methods=["GET"])
+@require_auth
+def portfolio_analysis():
+    """持仓组合优化分析"""
+    config = _load_user_config(request.current_user_id)
+    if not config:
+        return jsonify({"error": "无持仓数据"}), 400
+
+    # 获取持仓行情和 PnL
+    live_data = get_holdings_quotes(config["holdings"])
+    prices = {}
+    pnl_list = []
+    for h in config["holdings"]:
+        key = f"{h['market']}{h['code']}"
+        d = live_data.get(key)
+        if d:
+            prices[h["code"]] = d["price"]
+
+    pnl_list = calc_all_pnl(config["holdings"], prices)
+    enhanced = []
+    for p in pnl_list:
+        h = next((x for x in config["holdings"] if x["code"] == p["code"]), None)
+        if h:
+            p["related_boards"] = h.get("related_boards", [])
+        enhanced.append(p)
+
+    # 板块
+    boards = get_related_board_changes(config.get("related_boards", []))
+
+    # 组合分析
+    result = analyze_portfolio(config["holdings"], enhanced, boards=boards)
+
+    return jsonify(result)
 
 
 @api_bp.route("/analysis/detail/<code>", methods=["GET"])

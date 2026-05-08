@@ -132,7 +132,7 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
     <div class="login-form">
       <!-- 登录 / 注册 切换 -->
       <div style="display:flex;margin-bottom:16px;border-bottom:1px solid var(--border)">
-        <button id="tabLogin" class="btn-tab" onclick="switchAuthTab('login')" style="flex:1;padding:10px;border:none;background:none;font-size:15px;font-weight:600;cursor:pointer;color:var(--text);border-bottom:2px solid var(--navy)">登录</button>
+        <button id="tabLogin" class="btn-tab" onclick="switchAuthTab('login')" style="flex:1;padding:10px;border:none;background:none;font-size:15px;font-weight:600;cursor:pointer;color:var(--text);border-bottom:2px solid var(--primary)">登录</button>
         <button id="tabRegister" class="btn-tab" onclick="switchAuthTab('register')" style="flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;color:var(--text3)">注册</button>
       </div>
 
@@ -208,6 +208,47 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
       <div id="holdingsEmpty" class="empty-state" style="display:none">还没有持仓</div>
     </div>
 
+    <!-- PORTFOLIO PAGE -->
+    <div id="pagePortfolio" class="page">
+      <div id="portfolioLoading" class="loading">加载组合分析中...</div>
+      <div id="portfolioContent" style="display:none">
+        <!-- 风险等级 + 分散度 -->
+        <div class="card" id="portfolioOverview">
+          <div class="card-title">🎯 组合概览</div>
+          <div id="portfolioOverviewContent"></div>
+        </div>
+        <!-- 行业集中度 -->
+        <div class="card" id="portfolioSector">
+          <div class="card-title">📂 行业集中度</div>
+          <div id="portfolioSectorContent"></div>
+        </div>
+        <!-- 仓位分析 -->
+        <div class="card" id="portfolioPosition">
+          <div class="card-title">⚖️ 仓位合理性</div>
+          <div id="portfolioPositionContent"></div>
+        </div>
+        <!-- 相关性 -->
+        <div class="card" id="portfolioCorrelation">
+          <div class="card-title">🔗 持仓相关性</div>
+          <div id="portfolioCorrelationContent"></div>
+        </div>
+        <!-- 安全性 -->
+        <div class="card" id="portfolioSafety">
+          <div class="card-title">🛡️ 安全性评估</div>
+          <div id="portfolioSafetyContent"></div>
+        </div>
+        <!-- 调仓建议 -->
+        <div class="card" id="portfolioSuggestions">
+          <div class="card-title">💡 调仓建议</div>
+          <div id="portfolioSuggestionsContent"></div>
+        </div>
+      </div>
+      <div id="portfolioEmpty" class="empty-state" style="display:none">
+        <p>还没有持仓，无法分析组合</p>
+        <button class="btn btn-primary" style="width:auto;margin-top:12px" onclick="switchTab('holdings')">添加持仓</button>
+      </div>
+    </div>
+
     <!-- SETTINGS PAGE -->
     <div id="pageSettings" class="page">
       <div class="card">
@@ -239,6 +280,7 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
   <div class="tab-bar">
     <button class="tab active" onclick="switchTab('dashboard')">📊 分析</button>
     <button class="tab" onclick="switchTab('holdings')">📋 持仓</button>
+    <button class="tab" onclick="switchTab('portfolio')">🎯 组合</button>
     <button class="tab" onclick="switchTab('settings')">⚙️ 设置</button>
   </div>
 </div>
@@ -267,42 +309,53 @@ function showLogin() { document.getElementById('loginScreen').style.display='blo
 function showApp() { document.getElementById('loginScreen').style.display='none'; document.getElementById('appMain').style.display='block'; }
 
 function switchAuthTab(tab) {
-  document.getElementById('tabLogin').style.cssText = 'flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;' + (tab==='login' ? 'font-weight:600;color:var(--text);border-bottom:2px solid var(--navy)' : 'color:var(--text3)');
-  document.getElementById('tabRegister').style.cssText = 'flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;' + (tab==='register' ? 'font-weight:600;color:var(--text);border-bottom:2px solid var(--navy)' : 'color:var(--text3)');
-  document.getElementById('loginForm').style.display = tab==='login' ? 'block' : 'none';
-  document.getElementById('registerForm').style.display = tab==='register' ? 'block' : 'none';
+  var base = 'flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;';
+  var active = base + 'font-weight:600;color:var(--text);border-bottom:2px solid var(--primary)';
+  var inactive = base + 'color:var(--text3)';
+  document.getElementById('tabLogin').style.cssText = tab === 'login' ? active : inactive;
+  document.getElementById('tabRegister').style.cssText = tab === 'register' ? active : inactive;
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
 }
 
 function doPhoneLogin() {
-  const phone = document.getElementById('loginPhone').value;
-  const password = document.getElementById('loginPassword').value;
+  var phone = document.getElementById('loginPhone').value.trim();
+  var password = document.getElementById('loginPassword').value;
   if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
   if (!password) { alert('请输入密码'); return false; }
-  api('POST', '/auth/login', {phone, password}).then(d => {
+  api('POST', '/auth/login', {phone: phone, password: password}).then(function(d) {
     token = d.token; user = d.user; localStorage.setItem('token', token);
     showApp(); refreshAll();
-  }).catch(e => alert(e.error || '登录失败'));
+  }).catch(function(e) {
+    var msg = (e && e.error) || '登录失败';
+    if (msg.indexOf('手机号或密码错误') >= 0) msg = '账户不存在或密码错误，请先注册';
+    alert(msg);
+  });
   return false;
 }
 
 function doRegister() {
-  const phone = document.getElementById('regPhone').value;
-  const password = document.getElementById('regPassword').value;
-  const nickname = document.getElementById('regNickname').value || '';
+  var phone = document.getElementById('regPhone').value.trim();
+  var password = document.getElementById('regPassword').value;
+  var nickname = document.getElementById('regNickname').value.trim() || '';
   if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
   if (!password || password.length < 6) { alert('密码至少6位'); return false; }
-  api('POST', '/auth/register', {phone, password, nickname}).then(d => {
+  api('POST', '/auth/register', {phone: phone, password: password, nickname: nickname}).then(function(d) {
     token = d.token; user = d.user; localStorage.setItem('token', token);
     showApp(); refreshAll();
-  }).catch(e => alert(e.error || '注册失败'));
+  }).catch(function(e) {
+    var msg = (e && e.error) || '注册失败';
+    if (msg.indexOf('已注册') >= 0) msg = '该手机号已注册，请直接登录';
+    alert(msg);
+  });
   return false;
 }
 
 function doDevLogin() {
-  api('POST', '/auth/dev-login', {nickname: 'dev', id: Date.now()}).then(d => {
+  api('POST', '/auth/dev-login', {nickname: 'dev', id: Date.now()}).then(function(d) {
     token = d.token; user = d.user; localStorage.setItem('token', token);
     showApp(); refreshAll();
-  }).catch(e => alert('登录失败'));
+  }).catch(function(e) { alert('开发登录失败'); });
 }
 
 function logout() { localStorage.removeItem('token'); token = ''; showLogin(); }
@@ -314,6 +367,7 @@ function switchTab(tab) {
   event.target.classList.add('active');
   if (tab==='dashboard') refreshAll();
   if (tab==='holdings') loadHoldings();
+  if (tab==='portfolio') loadPortfolio();
   if (tab==='settings') loadSettings();
 }
 
@@ -492,6 +546,85 @@ function loadEnvironment() {
   }).catch(() => {});
 }
 
+// === 组合分析 ===
+function loadPortfolio() {
+  const l = document.getElementById('portfolioLoading');
+  const c = document.getElementById('portfolioContent');
+  const e = document.getElementById('portfolioEmpty');
+  l.style.display = 'block'; c.style.display = 'none'; e.style.display = 'none';
+  api('GET', '/analysis/portfolio').then(d => {
+    l.style.display = 'none';
+    if (d.error) { e.style.display='block'; return; }
+    c.style.display = 'block';
+
+    // 概览
+    const riskColors = {'高风险':'up','中高风险':'up','中风险':'','中低风险':'down','低风险':'down'};
+    document.getElementById('portfolioOverviewContent').innerHTML =
+      '<div class="flow-grid" style="grid-template-columns:1fr 1fr 1fr">'+
+        '<div class="flow-item"><div class="val">'+(d.total_value||0).toFixed(2)+'</div><div class="lbl">总市值</div></div>'+
+        '<div class="flow-item"><div class="val '+(riskColors[d.risk_level]||'')+'">'+d.risk_level+'</div><div class="lbl">风险等级</div></div>'+
+        '<div class="flow-item"><div class="val">'+(d.diversification_score||0)+'分</div><div class="lbl">分散度评分</div></div>'+
+      '</div>';
+
+    // 行业集中度
+    const sector = d.sector_concentration || {};
+    const sectorKeys = Object.keys(sector).filter(k => !k.startsWith('_'));
+    if (sectorKeys.length) {
+      const maxSector = Math.max(...sectorKeys.map(k => sector[k]));
+      document.getElementById('portfolioSectorContent').innerHTML =
+        sectorKeys.map(k =>
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
+            '<span style="width:80px;font-size:13px">'+k+'</span>'+
+            '<div style="flex:1;height:8px;background:rgba(148,163,184,.12);border-radius:4px;overflow:hidden">'+
+              '<div style="height:100%;width:'+(sector[k]/maxSector*70)+'%;background:var(--primary-gradient);border-radius:4px;transition:width .5s"></div>'+
+            '</div>'+
+            '<span style="width:50px;text-align:right;font-weight:600;font-size:13px">'+sector[k]+'%</span>'+
+          '</div>'
+        ).join('') +
+        '<div style="margin-top:6px;font-size:12px;color:var(--text2)">行业分布: '+sector._judgment+'</div>';
+    }
+
+    // 仓位
+    const pos = d.single_stock_weight || [];
+    if (pos.length) {
+      document.getElementById('portfolioPositionContent').innerHTML =
+        pos.map(p =>
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(91,103,241,.06)">'+
+            '<span><b>'+p.name+'</b> <span style="color:var(--text3);font-size:12px">'+p.code+'</span></span>'+
+            '<div style="text-align:right"><span style="font-weight:600;font-size:15px">'+p.weight+'%</span>'+
+              (p.advice ? '<br><span style="font-size:11px;color:var(--orange)">'+p.advice+'</span>' : '')+
+            '</div>'+
+          '</div>'
+        ).join('');
+    }
+
+    // 相关性
+    if (d.correlation_analysis) {
+      document.getElementById('portfolioCorrelationContent').innerHTML =
+        '<div style="font-size:13px;color:var(--text2);line-height:1.7">'+d.correlation_analysis+'</div>';
+    }
+
+    // 安全性
+    const saf = d.safety_assessment || {};
+    if (saf.assessment) {
+      document.getElementById('portfolioSafetyContent').innerHTML =
+        '<div class="tech-mini" style="grid-template-columns:repeat(3,1fr)">'+
+          '<div>总盈亏<span class="v '+(saf.total_unrealized_pnl>=0?'up':'down')+'">'+(saf.total_unrealized_pnl>0?'+':'')+(saf.total_unrealized_pnl||0).toFixed(0)+'</span></div>'+
+          '<div>平均盈亏<span class="v '+(saf.avg_pnl_pct>=0?'up':'down')+'">'+(saf.avg_pnl_pct>0?'+':'')+(saf.avg_pnl_pct||0).toFixed(2)+'%</span></div>'+
+          '<div>最大回撤<span class="v down">'+(saf.max_drawdown||0).toFixed(2)+'%</span></div>'+
+        '</div>'+
+        '<div style="font-size:13px;color:var(--text2);margin-top:8px">'+saf.assessment+'</div>';
+    }
+
+    // 调仓建议
+    const sugs = d.rebalance_suggestions || [];
+    if (sugs.length) {
+      document.getElementById('portfolioSuggestionsContent').innerHTML =
+        sugs.map(s => '<div class="advice-box" style="margin-bottom:8px;font-size:13px">💡 '+s+'</div>').join('');
+    }
+  }).catch(() => { l.style.display='none'; e.style.display='block'; });
+}
+
 // === Holdings ===
 function loadHoldings() {
   api('GET', '/holdings').then(h => {
@@ -504,28 +637,44 @@ function loadHoldings() {
     ).join('')}</table>`;
   }).catch(() => {});
 }
+var BOARD_OPTIONS = ['半导体','AI芯片','汽车零部件','无人驾驶','新能源','光伏','消费电子','医药','白酒','食品饮料','金融','房地产','军工','化工','有色金属','钢铁','煤炭','电力','通信','计算机','传媒','建筑','交通运输','轻工制造','机械设备'];
+
 function showHoldingForm(data) {
-  const isEdit = !!data;
-  document.getElementById('modalBody').innerHTML = `
-    <div class="modal-title">${isEdit ? '编辑持仓' : '添加持仓'}</div>
-    <form onsubmit="return saveHolding(this, ${isEdit ? data.id : 'null'})">
-      <div class="form-row"><div class="form-group"><label>代码</label><input id="f_code" value="${isEdit?data.code:''}" required></div>
-      <div class="form-group"><label>名称</label><input id="f_name" value="${isEdit?data.name:''}" required></div></div>
-      <div class="form-row"><div class="form-group"><label>交易所</label><select id="f_market"><option value="sz" ${isEdit&&data.market==='sz'?'selected':''}>深圳 sz</option><option value="sh" ${isEdit&&data.market==='sh'?'selected':''}>上海 sh</option></select></div>
-      <div class="form-group"><label>股数</label><input type="number" id="f_shares" value="${isEdit?data.shares:''}" required></div></div>
-      <div class="form-group"><label>成本价</label><input type="number" step="0.01" id="f_cost" value="${isEdit?data.cost_per_share:''}" required></div>
-      <div class="form-row"><button type="submit" class="btn btn-primary" style="flex:1">保存</button>
-      <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button></div>
-    </form>`;
-  document.getElementById('modal').classList.add('show');
-}
-function saveHolding(form, id) {
-  const d = {code: document.getElementById('f_code').value, name: document.getElementById('f_name').value, market: document.getElementById('f_market').value, shares: parseInt(document.getElementById('f_shares').value), cost_per_share: parseFloat(document.getElementById('f_cost').value)};
-  const p = id ? api('PUT', `/holdings/${id}`, d) : api('POST', '/holdings', d);
-  p.then(() => { closeModal(); loadHoldings(); refreshAll(); });
-  return false;
-}
-function deleteHolding(id) {
+	  var isEdit = !!data;
+	  var curBoards = [];
+	  if (isEdit && data.related_boards) {
+	    try { curBoards = JSON.parse(data.related_boards); } catch(e) {}
+	  }
+	  var boardHtml = BOARD_OPTIONS.map(function(b) {
+	    var checked = curBoards.indexOf(b) >= 0 ? 'checked' : '';
+	    return '<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 6px 3px 0;cursor:pointer;font-size:12px;font-weight:400;background:rgba(148,163,184,.08);padding:4px 10px;border-radius:14px"><input type="checkbox" value="'+b+'" '+checked+' style="width:auto;margin:0">'+b+'</label>';
+	  }).join('');
+	  document.getElementById('modalBody').innerHTML = `
+	    <div class="modal-title">${isEdit ? '编辑持仓' : '添加持仓'}</div>
+	    <form onsubmit="return saveHolding(this, ${isEdit ? data.id : 'null'})">
+	      <div class="form-row"><div class="form-group"><label>代码</label><input id="f_code" value="${isEdit?data.code:''}" required></div>
+	      <div class="form-group"><label>名称</label><input id="f_name" value="${isEdit?data.name:''}" required></div></div>
+	      <div class="form-row"><div class="form-group"><label>交易所</label><select id="f_market"><option value="sz" ${isEdit&&data.market==='sz'?'selected':''}>深圳 sz</option><option value="sh" ${isEdit&&data.market==='sh'?'selected':''}>上海 sh</option></select></div>
+	      <div class="form-group"><label>股数</label><input type="number" id="f_shares" value="${isEdit?data.shares:''}" required></div></div>
+	      <div class="form-group"><label>成本价</label><input type="number" step="0.01" id="f_cost" value="${isEdit?data.cost_per_share:''}" required></div>
+	      <div class="form-group" style="margin-bottom:10px">
+	        <label>所属板块（多选，用于组合分析）</label>
+	        <div style="display:flex;flex-wrap:wrap;gap:2px;padding:4px 0">${boardHtml}</div>
+	      </div>
+	      <div class="form-row"><button type="submit" class="btn btn-primary" style="flex:1">保存</button>
+	      <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button></div>
+	    </form>`;
+	  document.getElementById('modal').classList.add('show');
+	}
+	function saveHolding(form, id) {
+	  var checks = document.querySelectorAll('#modalBody input[type=checkbox]:checked');
+	  var boards = [];
+	  checks.forEach(function(c) { boards.push(c.value); });
+	  var d = {code: document.getElementById('f_code').value, name: document.getElementById('f_name').value, market: document.getElementById('f_market').value, shares: parseInt(document.getElementById('f_shares').value), cost_per_share: parseFloat(document.getElementById('f_cost').value), related_boards: boards};
+	  var p = id ? api('PUT', '/holdings/' + id, d) : api('POST', '/holdings', d);
+	  p.then(function() { closeModal(); loadHoldings(); refreshAll(); });
+	  return false;
+	}function deleteHolding(id) {
   if (!confirm('确定删除？')) return;
   api('DELETE', `/holdings/${id}`).then(() => { loadHoldings(); refreshAll(); });
 }
@@ -647,8 +796,20 @@ function saveNotify() {
 function closeModal() { document.getElementById('modal').classList.remove('show'); }
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (token) { showApp(); refreshAll(); }
-  else showLogin();
+  if (token) {
+    showApp();
+    // 验证 token 是否有效
+    api('GET', '/auth/me').then(function(u) {
+      user = u;
+      document.getElementById('userInfo').textContent = u.nickname || '已登录';
+      refreshAll();
+    }).catch(function() {
+      // token 过期，回到登录页
+      localStorage.removeItem('token');
+      token = '';
+      showLogin();
+    });
+  } else showLogin();
 });
 </script>
 </body>
