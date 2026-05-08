@@ -20,7 +20,7 @@ def is_trading_day(dt: datetime = None) -> bool:
     date_str = dt.strftime("%Y-%m-%d")
 
     if _TRADE_CALENDAR is not None and _CALENDAR_DATE == date_str:
-        return True
+        return date_str in _TRADE_CALENDAR
 
     try:
         cal = ak.tool_trade_date_hist_sina()
@@ -150,9 +150,8 @@ def get_top_boards(top_n: int = 10) -> dict:
 def get_index_tech(symbol: str = "sh000001") -> dict:
     """获取大盘指数的技术面简评（用于市场环境判断）"""
     try:
-        # sh000001/SH000001 -> akshare 格式
-        code = symbol.replace("sh", "SH").replace("sz", "SZ")
-        df = ak.stock_zh_index_daily(symbol=f"s{code}")
+        # akshare stock_zh_index_daily 需要的格式与 Sina 一致，如 sh000001
+        df = ak.stock_zh_index_daily(symbol=symbol)
         if df.empty:
             return {}
         df.columns = ["date", "open", "close", "high", "low", "volume"]

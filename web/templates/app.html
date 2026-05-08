@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>盯盘助手</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -90,6 +91,16 @@ tr:last-child td{border-bottom:none}
 @keyframes skeleton{0%{background-position:-200% 0}100%{background-position:200% 0}}
 .card{animation:fadeIn .4s ease-out}
 .skeleton-loading{background:linear-gradient(90deg,rgba(91,103,241,.06) 25%,rgba(91,103,241,.12),rgba(91,103,241,.06) 75%);background-size:200% 100%;animation:skeleton 1.5s infinite;border-radius:8px}
+
+@media(max-width:480px){
+.header h1{font-size:15px}
+.card{padding:12px}
+.card-title{font-size:13px}
+.tab{font-size:12px;padding:8px 0}
+#stockSearch{font-size:14px;padding:10px 12px}
+.flow-grid{grid-template-columns:repeat(3,1fr)}
+.holding-meta{grid-template-columns:1fr 1fr}
+}
 @media(prefers-color-scheme:dark){
 :root{--bg:#0f1117;--card:rgba(26,28,34,.85);--card-border:rgba(91,103,241,.15);--text:#e4e6ed;--text2:#9aa0a6;--text3:#5f6368;--shadow:0 8px 28px rgba(0,0,0,.25);--shadow-hover:0 12px 36px rgba(0,0,0,.3)}
 body{background:radial-gradient(ellipse at 20% 20%,rgba(91,103,241,.08),transparent 40%),radial-gradient(ellipse at 80% 80%,rgba(124,84,217,.06),transparent 40%),#0f1117}
@@ -294,14 +305,13 @@ let token = localStorage.getItem('token') || '';
 let user = null;
 
 function api(method, path, data) {
-  return fetch(API + path, {
-    method,
-    headers: { 'Content-Type': 'application/json', ...(token ? {'Authorization': 'Bearer '+token} : {}) },
-    body: data ? JSON.stringify(data) : undefined
-  }).then(r => {
-    if (r.status === 401) { localStorage.removeItem('token'); token=''; showLogin(); throw new Error('unauth'); }
-    return r.json().then(d => r.ok ? d : Promise.reject(d));
-  });
+  var hdrs = { 'Content-Type': 'application/json' };
+  if (token) { hdrs['Authorization'] = 'Bearer ' + token; }
+  return fetch(API + path, { method: method, headers: hdrs, body: data ? JSON.stringify(data) : undefined })
+    .then(function(r) {
+      if (r.status === 401) { localStorage.removeItem('token'); token=''; showLogin(); throw new Error('unauth'); }
+      return r.json().then(function(d) { return r.ok ? d : Promise.reject(d); });
+    });
 }
 
 function showLogin() { document.getElementById('loginScreen').style.display='block'; document.getElementById('appMain').style.display='none'; }
@@ -321,6 +331,7 @@ function doPhoneLogin() {
   try {
     var phone = document.getElementById('loginPhone').value.trim();
     var password = document.getElementById('loginPassword').value;
+    localStorage.setItem('last_phone', phone);
     if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
     if (!password) { alert('请输入密码'); return false; }
     api('POST', '/auth/login', {phone: phone, password: password}).then(function(d) {
@@ -364,10 +375,10 @@ function doDevLogin() {
 function logout() { localStorage.removeItem('token'); token = ''; showLogin(); }
 
 function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
   document.getElementById('page'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
-  event.target.classList.add('active');
+  document.querySelector('.tab-bar .tab[onclick*="' + tab + '"]').classList.add('active');
   if (tab==='dashboard') refreshAll();
   if (tab==='holdings') loadHoldings();
   if (tab==='portfolio') loadPortfolio();
@@ -375,29 +386,27 @@ function switchTab(tab) {
 }
 
 function refreshAll() {
-  document.getElementById('userInfo').textContent = user?.nickname || '已登录';
+  document.getElementById('userInfo').textContent = (user && user.nickname) || '已登录';
   loadReport();
   loadEnvironment();
 }
 
 // === 主报告：表格 + 总结 ===
 function loadReport() {
-  api('GET', '/analysis/report').then(function(d) {
-    var rc = document.getElementById('reportContent');
-    var rl = document.getElementById('reportLoading');
-    var re = document.getElementById('reportEmpty');
+	  api('GET', '/analysis/report').then(function(d) {
+	    var rc = document.getElementById('reportContent');
+	    var rl = document.getElementById('reportLoading');
+	    var re = document.getElementById('reportEmpty');
+	    var hasHoldings = d.holdings && d.holdings.length;
+	    rl.style.display = 'none';
+	    rc.style.display = 'block';
+	    if (hasHoldings) {
+	      re.style.display = 'none';
+	    } else {
+	      re.style.display = 'block';
+	    }
 
-    if (!d.holdings || !d.holdings.length) {
-      rl.style.display = 'none';
-      re.style.display = 'block';
-      return;
-    }
-
-    rl.style.display = 'none';
-    re.style.display = 'none';
-    rc.style.display = 'block';
-
-    document.getElementById('statusBar').className = 'status-bar open';
+	    document.getElementById('statusBar').className = 'status-bar open';
 	    document.getElementById('statusBar').innerHTML = '📊 非交易时间';
 
     // 大盘指数表
@@ -644,9 +653,15 @@ function loadHoldings() {
     const empty = document.getElementById('holdingsEmpty');
     if (!h.length) { el.innerHTML = ''; empty.style.display='block'; return; }
     empty.style.display='none';
-    el.innerHTML = `<table><tr><th>名称</th><th>持仓</th><th>成本</th><th></th></tr>${h.map(x =>
-      `<tr><td><b>${x.name}</b><br><span style="font-size:11px;color:#999">${x.code}</span></td><td>${x.shares}股</td><td>${x.cost_per_share}</td><td><button class="btn-sm" onclick="showStock('${x.code}')">分析</button> <button class="btn-danger" onclick="deleteHolding(${x.id})">删</button></td></tr>`
-    ).join('')}</table>`;
+    el.innerHTML = `<div>${h.map(function(x) {
+      return '<div class="card" style="cursor:pointer;padding:12px;margin-bottom:8px" onclick="showStock(' + x.code + ')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div><b style="font-size:15px">' + x.name + '</b> <span style="color:var(--text3);font-size:12px">' + x.code + '</span></div>' +
+          '<div style="color:var(--text3);font-size:12px">' + x.shares + '股 @ ' + x.cost_per_share + '</div>' +
+        '</div>' +
+        '<div style="text-align:right;margin-top:6px"><button class="btn-danger" onclick="event.stopPropagation();deleteHolding(' + x.id + ');return false">删除</button></div>' +
+      '</div>';
+    }).join('')}</div>`;
   }).catch(function() {
     document.getElementById('reportLoading').style.display = 'none';
     document.getElementById('reportEmpty').style.display = 'block';
@@ -654,8 +669,8 @@ function loadHoldings() {
 }
 function showHoldingForm(data) {
   var isEdit = !!data;
-  document.getElementById('modalBody').innerHTML = \`
-    <div class="modal-title">\${isEdit ? '编辑持仓' : '添加持仓'}</div>
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-title">${isEdit ? '编辑持仓' : '添加持仓'}</div>
     <div style="margin-bottom:14px">
       <label>搜索股票</label>
       <div style="position:relative">
@@ -664,7 +679,7 @@ function showHoldingForm(data) {
         <div id="f_stockResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);border-radius:10px;border:1px solid var(--card-border);box-shadow:0 8px 28px rgba(58,76,146,.15);z-index:999;max-height:300px;overflow-y:auto;margin-top:2px"></div>
       </div>
     </div>
-    <form onsubmit="return saveHolding(this, \${isEdit ? data.id : 'null'})">
+    <form onsubmit="return saveHolding(this, ${isEdit ? data.id : 'null'})">
       <div class="form-row">
         <div class="form-group"><label>代码</label><input id="f_code" value="\${isEdit?data.code:''}" readonly style="background:rgba(148,163,184,.08)"></div>
         <div class="form-group"><label>名称</label><input id="f_name" value="\${isEdit?data.name:''}" readonly style="background:rgba(148,163,184,.08)"></div>
@@ -677,7 +692,7 @@ function showHoldingForm(data) {
       <div class="form-row"><button type="submit" class="btn btn-primary" style="flex:1">保存</button>
       <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button></div>
       <input type="hidden" id="f_boards" value="">
-    </form>\`;
+    </form>`;
   document.getElementById('modal').classList.add('show');
 }
 function saveHolding(form, id) {
@@ -773,64 +788,10 @@ function showStock(code) {
   }).catch(() => alert('获取分析失败'));
 }
 
-// === 股票搜索 + 诊断 ===
-function onStockSearch(q) {
-  clearTimeout(searchTimer);
-  const el = document.getElementById('searchResults');
-  if (!q || q.length < 1) { el.style.display='none'; return; }
-  searchTimer = setTimeout(() => {
-    api('GET', '/stock/search?q='+encodeURIComponent(q)).then(results => {
-      if (!results.length) { el.style.display='none'; return; }
-      el.innerHTML = results.map(s =>
-        '<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(91,103,241,.06);display:flex;justify-content:space-between;align-items:center" ' +
-        'onmousedown="event.preventDefault();showDiagnose(\''+s.code+'\',\''+s.name+'\')" ' +
-        'onmouseover="this.style.background=\'rgba(91,103,241,.06)\'" onmouseout="this.style.background=\'transparent\'">' +
-        '<span><b>'+s.name+'</b> <span style="color:var(--text3);font-size:12px">'+s.code+'</span></span>' +
-        '<span style="font-size:11px;color:var(--text3)">'+(s.market==='sh'?'沪':'深')+'</span></div>'
-      ).join('');
-      el.style.display = 'block';
-    }).catch(() => {});
-  }, 300);
-}
-
-function showDiagnose(code, name) {
-  document.getElementById('searchResults').style.display='none';
-  document.getElementById('stockSearch').value='';
-  api('GET', '/stock/diagnose/'+code).then(d => {
-    if (!d || d.error) { alert(d?.error || '暂无数据'); return; }
-    const detail = d.detail || {};
-    const tech = detail.technology || {};
-    const vp = detail.volume_price || {};
-    const signals = d.signals || {};
-    const bulls = (signals.bull||[]).map(s => '<span class="signal-chip bull">'+s+'</span>').join('');
-    const bears = (signals.bear||[]).map(s => '<span class="signal-chip bear">'+s+'</span>').join('');
-
-    document.getElementById('modalBody').innerHTML =
-      '<div class="modal-title">🔍 '+name+' ('+code+') 诊断</div>' +
-      '<div style="text-align:center;margin-bottom:16px">' +
-        '<span style="font-size:48px;font-weight:800" class="'+(d.score>=70?'up':d.score>=55?'':d.score>=40?'down':'')+'">'+d.score+'</span>' +
-        '<span style="font-size:14px;color:var(--text3)">/100</span>' +
-        '<div style="margin-top:4px"><span class="tag '+(d.score>=70?'up':d.score>=55?'neutral':'down')+'" style="font-size:14px;padding:4px 16px">'+d.level+'</span></div>' +
-        '<div style="margin-top:8px;font-size:24px;font-weight:700" class="'+(d.change_pct>0?'up':'down')+'">'+d.price.toFixed(2)+' '+(d.change_pct>0?'+':'')+d.change_pct.toFixed(2)+'%</div>' +
-      '</div>' +
-      '<div class="tech-mini" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">' +
-        '<div>技术面<span class="v">'+tech.score+'/'+tech.max+'</span></div>' +
-        '<div>量价<span class="v">'+vp.score+'/'+vp.max+'</span></div>' +
-        '<div>诊断<span class="v '+(d.bias==='强势'?'up':d.bias==='偏空'?'down':'')+'">'+d.bias+'</span></div>' +
-      '</div>' +
-      (tech.items?.length ? '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">🔬 '+(tech.items||[]).join(' | ')+'</div>' : '') +
-      (bulls+bears ? '<div style="margin-bottom:8px">'+bulls+' '+bears+'</div>' : '') +
-      '<div style="margin-top:12px"><button class="btn btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>';
-    document.getElementById('modal').classList.add('show');
-  }).catch(() => alert('获取诊断失败'));
-}
-
 // === Settings ===
 function loadSettings() {
   api('GET', '/auth/me').then(u => { document.getElementById('userDetail').textContent = `昵称: ${u.nickname||'未设置'} | ID: ${u.id}`; }).catch(() => {});
-  api('GET', '/notify/config').then(c => { document.getElementById('wechatUrl').value = c.wechat_webhook||''; document.getElementById('dingtalkUrl').value = c.dingtalk_webhook||''; document.getElementById('atMobiles').value = (c.at_mobiles||[]).join(','); }).catch(function() {
-    document.getElementById('reportLoading').style.display = 'none';
-    document.getElementById('reportEmpty').style.display = 'block';
+	  api('GET', '/notify/config').then(function(c) { document.getElementById('wechatUrl').value = c.wechat_webhook||''; document.getElementById('dingtalkUrl').value = c.dingtalk_webhook||''; document.getElementById('atMobiles').value = (c.at_mobiles||[]).join(','); }).catch(function(){});
   });
 }
 function saveNotify() {
@@ -838,22 +799,37 @@ function saveNotify() {
 }
 function closeModal() { document.getElementById('modal').classList.remove('show'); }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function() {
   if (token) {
     showApp();
-    // 验证 token 是否有效
     api('GET', '/auth/me').then(function(u) {
       user = u;
       document.getElementById('userInfo').textContent = u.nickname || '已登录';
       refreshAll();
     }).catch(function() {
-      // token 过期，回到登录页
       localStorage.removeItem('token');
       token = '';
       showLogin();
     });
-  } else showLogin();
+  } else {
+      showLogin();
+      var lastPhone = localStorage.getItem('last_phone');
+      if (lastPhone) { document.getElementById('loginPhone').value = lastPhone; }
+    }
 });
-</script>
+
+
+function quickAddHolding(code) {
+  closeModal();
+  api('GET', '/stock/info?code=' + code).then(function(info) {
+    if (!info || info.error) { alert('无法获取股票信息'); return; }
+    var name = info.name || code;
+    var market = info.market || 'sz';
+    var boards = info.boards || [];
+    api('POST', '/holdings', {code: code, name: name, market: market, shares: 100, cost_per_share: 0, related_boards: boards})
+      .then(function() { alert('已添加 ' + name + ' 到持仓，请在持仓页修改股数和成本'); switchTab('holdings'); })
+      .catch(function(e) { alert('添加失败: ' + (e.error || '')); });
+  }).catch(function() { alert('获取股票信息失败'); });
+}</script>
 </body>
 </html>

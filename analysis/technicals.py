@@ -225,4 +225,6 @@ def analyze_stock(df: pd.DataFrame) -> dict:
         "score": score_info["score"],
         "bull_signals": bull_signals,
         "bear_signals": bear_signals,
+        "support": boll.get("lower", cur * 0.97),
+        "resistance": boll.get("upper", cur * 1.03),
     }

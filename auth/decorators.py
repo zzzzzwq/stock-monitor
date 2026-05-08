@@ -2,7 +2,7 @@
 import functools
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 from flask import request, jsonify
@@ -18,8 +18,8 @@ def create_token(user_id: int, openid: str = "") -> str:
     payload = {
         "user_id": user_id,
         "openid": openid,
-        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRY_DAYS),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 

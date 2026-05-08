@@ -15,7 +15,7 @@ def is_trading_day(dt: datetime = None) -> bool:
 def next_trading_day(dt: datetime = None) -> str:
     """获取下一个交易日的日期字符串 YYYY-MM-DD"""
     dt = dt or datetime.now()
-    for i in range(1, 8):
+    for i in range(1, 15):
         candidate = dt + timedelta(days=i)
         if is_trading_day(candidate):
             return candidate.strftime("%Y-%m-%d")
@@ -25,7 +25,7 @@ def next_trading_day(dt: datetime = None) -> str:
 def last_trading_day(dt: datetime = None) -> str:
     """获取上一个交易日的日期字符串 YYYY-MM-DD"""
     dt = dt or datetime.now()
-    for i in range(1, 8):
+    for i in range(1, 15):
         candidate = dt - timedelta(days=i)
         if is_trading_day(candidate):
             return candidate.strftime("%Y-%m-%d")
