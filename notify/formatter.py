@@ -198,3 +198,139 @@ def format_2200(next_day_preview: dict) -> tuple:
         lines.append(f"  {suggestion}")
 
     return "🌙 明日预览", "\n".join(lines)
+
+
+def _build_summary(indices: dict, holdings_data: list, pnl_list: list, boards: dict = None) -> str:
+    """根据数据生成总结文本"""
+    parts = []
+
+    # 大盘判断
+    weak_indices = [n for n, d in indices.items() if d.get("change_pct", 0) < -0.5]
+    strong_indices = [n for n, d in indices.items() if d.get("change_pct", 0) > 0.5]
+
+    if weak_indices and not strong_indices:
+        parts.append(f"今天大盘整体偏弱，{'、'.join(weak_indices)}下跌，市场情绪不佳。")
+    elif strong_indices and not weak_indices:
+        parts.append(f"今天市场表现较好，{'、'.join(strong_indices)}上涨。")
+    elif strong_indices and weak_indices:
+        parts.append(f"今天市场分化，{'、'.join(strong_indices)}上涨但{'、'.join(weak_indices)}走弱。")
+    else:
+        parts.append("今天大盘窄幅震荡，各指数变动不大。")
+
+    # 持仓判断
+    up_stocks = []
+    down_stocks = []
+    deep_down = []
+    for h in holdings_data:
+        chg = h.get("change_pct", 0)
+        name = h.get("name", "")
+        if chg > 0.2:
+            up_stocks.append(name)
+        elif chg < -0.5:
+            down_stocks.append(name)
+        if chg < -2:
+            deep_down.append(name)
+
+    if up_stocks:
+        parts.append(f"{'、'.join(up_stocks)}勉强翻红但力度有限，" if len(up_stocks) < len(holdings_data) else f"{'、'.join(up_stocks)}表现较好。")
+    if down_stocks:
+        parts.append(f"{'、'.join(down_stocks)}持续走弱，")
+
+    # 盈亏情况
+    total_pnl = sum(p.get("pnl", 0) for p in pnl_list)
+    if total_pnl < 0:
+        parts.append(f"两个持仓都处于浮亏状态，合计亏损{abs(total_pnl):.0f}元。")
+    else:
+        parts.append(f"目前持仓整体盈利{total_pnl:.0f}元。")
+
+    return "".join(parts)
+
+
+def format_market_report(indices: dict, holdings_data: list, pnl_list: list,
+                         boards: dict = None, tech_data: dict = None, fund_flow: dict = None) -> str:
+    """生成完整的市场分析报告 — 大盘→持仓→总结"""
+    now = datetime.now()
+    wd = WEEKDAY_NAMES[now.weekday()]
+    date_str = now.strftime("%Y-%m-%d")
+    lines = [f"盘前分析 {date_str} {wd}", "━━━━━━━━━━━━━━━━━━"]
+
+    # 大盘指数
+    lines.append("\n【大盘指数】")
+    lines.append(f"{'指数':<10}{'点位':>10}{'涨跌幅':>10}")
+    for name, d in indices.items():
+        chg = d.get("change_pct", 0)
+        arrow = "↑" if chg > 0 else "↓"
+        lines.append(f"{name:<10}{d.get('price', 0):>10.2f}{arrow}{chg:>+8.2f}%")
+
+    # 持仓股
+    lines.append("\n【持仓股】")
+    total_pnl = 0
+    for pnl in pnl_list:
+        code = pnl.get("code", "")
+        name = pnl.get("name", "")
+        price = pnl.get("price", 0)
+        chg = pnl.get("change_pct", 0)
+        shares = pnl.get("shares", 0)
+        cost = pnl.get("cost", 0)
+        pnl_val = pnl.get("pnl", 0)
+        pnl_pct = pnl.get("pnl_pct", 0)
+        market_value = pnl.get("market_value", 0)
+        high = pnl.get("high", price)
+        low = pnl.get("low", price)
+        total_pnl += pnl_val
+
+        # 行情描述
+        if chg > 0.5:
+            trend_desc = f"上涨{chg:+.2f}%"
+        elif chg > 0:
+            trend_desc = f"微涨{chg:+.2f}%"
+        elif chg > -0.5:
+            trend_desc = f"微跌{chg:+.2f}%"
+        else:
+            trend_desc = f"跌{chg:+.2f}%"
+
+        level_info = ""
+        if price < 100 and pnl.get("prev_close", 0) >= 100:
+            level_info = "，已跌破百元关口"
+        elif price < 50 and pnl.get("prev_close", 0) >= 50:
+            level_info = "，已跌破五十元关口"
+
+        cost_info = f"浮亏{abs(pnl_val):.0f}(亏损{pnl_pct:+.2f}%)" if pnl_val < 0 else f"盈利{pnl_val:.0f}(盈利{pnl_pct:+.2f}%)"
+        lines.append(f"\n{name}({code}) — 现价 {price:.2f}，今天{trend_desc}{level_info}，日内波幅 {low:.2f}~{high:.2f}")
+        lines.append(f"  持仓{shares}股 均价{cost} 市值{market_value:.0f} {cost_info}")
+
+        # 技术面简评
+        ta = tech_data.get(code, {}) if tech_data else {}
+        if ta:
+            mas = ta.get("mas", {})
+            macd_trend = ta.get("macd", {}).get("trend", "")
+            rsi = ta.get("rsi", 0)
+            score = ta.get("score", 0)
+            signals = ta.get("bull_signals", []) + ta.get("bear_signals", [])
+            lines.append(f"  技术: 均线{ta.get('ma_status','--')} MACD{macd_trend} RSI{rsi} 评分{score}")
+            if signals:
+                lines.append(f"  信号: {' '.join(signals[:5])}")
+
+    # 总盈亏
+    lines.append(f"\n总持仓盈亏：{total_pnl:+.0f} 元")
+
+    # 板块
+    if boards and any(v is not None for v in boards.values()):
+        lines.append("\n【板块】")
+        for name, chg in boards.items():
+            if chg is not None:
+                arrow = "↑" if chg > 0 else "↓"
+                lines.append(f"  {name}: {arrow}{chg:+.2f}%")
+
+    # 资金流向
+    if fund_flow:
+        main_net = fund_flow.get("main_net", 0)
+        lines.append(f"\n【资金流向】")
+        lines.append(f"  主力净流: {'+' if main_net >= 0 else ''}{main_net}亿")
+
+    # 总结
+    summary = _build_summary(indices, holdings_data, pnl_list, boards)
+    lines.append(f"\n【总结】\n{summary}")
+
+    lines.append(f"\n{'='*40}\n仅供参考，不构成投资建议")
+    return "\n".join(lines)

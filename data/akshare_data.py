@@ -101,6 +101,79 @@ def get_related_board_changes(board_names: list[str]) -> dict[str, float]:
     return result
 
 
+def get_market_sentiment() -> dict:
+    """获取大盘情绪：涨跌家数、资金流向"""
+    result = {}
+    try:
+        df = ak.stock_market_fund_flow()
+        if df is not None and not df.empty:
+            row = df.iloc[-1]
+            result["fund_flow"] = {
+                "date": str(row.iloc[0]),
+                "main_net": round(float(row.iloc[6]) / 1e8, 2) if len(row) > 6 else 0,
+                "main_pct": round(float(row.iloc[7]), 2) if len(row) > 7 else 0,
+                "super_large_net": round(float(row.iloc[8]) / 1e8, 2) if len(row) > 8 else 0,
+                "large_net": round(float(row.iloc[10]) / 1e8, 2) if len(row) > 10 else 0,
+                "medium_net": round(float(row.iloc[12]) / 1e8, 2) if len(row) > 12 else 0,
+                "small_net": round(float(row.iloc[14]) / 1e8, 2) if len(row) > 14 else 0,
+            }
+    except Exception as e:
+        logger.warning(f"市场情绪获取失败: {e}")
+
+    return result
+
+
+def get_top_boards(top_n: int = 10) -> dict:
+    """获取全市场最强/最弱板块"""
+    result = {"top": [], "bottom": []}
+    try:
+        df = ak.stock_board_industry_name_em()
+        if df is not None and not df.empty:
+            df["涨跌幅"] = pd.to_numeric(df["涨跌幅"], errors="coerce")
+            df = df.dropna(subset=["涨跌幅"])
+            for _, row in df.nlargest(top_n, "涨跌幅").iterrows():
+                result["top"].append({
+                    "name": str(row.get("板块名称", "")),
+                    "change_pct": round(float(row["涨跌幅"]), 2),
+                })
+            for _, row in df.nsmallest(top_n, "涨跌幅").iterrows():
+                result["bottom"].append({
+                    "name": str(row.get("板块名称", "")),
+                    "change_pct": round(float(row["涨跌幅"]), 2),
+                })
+    except Exception as e:
+        logger.warning(f"板块排行获取失败: {e}")
+
+    return result
+
+
+def get_index_tech(symbol: str = "sh000001") -> dict:
+    """获取大盘指数的技术面简评（用于市场环境判断）"""
+    try:
+        # sh000001/SH000001 -> akshare 格式
+        code = symbol.replace("sh", "SH").replace("sz", "SZ")
+        df = ak.stock_zh_index_daily(symbol=f"s{code}")
+        if df.empty:
+            return {}
+        df.columns = ["date", "open", "close", "high", "low", "volume"]
+        close = df["close"]
+        cur = float(close.iloc[-1])
+        ma5 = float(close.rolling(5).mean().iloc[-1])
+        ma10 = float(close.rolling(10).mean().iloc[-1])
+        ma20 = float(close.rolling(20).mean().iloc[-1])
+        ma_stat = "多头" if cur > ma5 > ma10 > ma20 else "空头" if cur < ma5 < ma10 < ma20 else "纠缠"
+        return {
+            "price": round(cur, 2),
+            "ma5": round(ma5, 2),
+            "ma10": round(ma10, 2),
+            "ma20": round(ma20, 2),
+            "ma_status": ma_stat,
+        }
+    except Exception as e:
+        logger.warning(f"指数技术面获取失败: {e}")
+        return {}
+
+
 def get_news(code: str) -> list[dict]:
     """获取个股新闻"""
     try:
