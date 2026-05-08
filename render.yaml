@@ -1,0 +1,19 @@
+# Render 一键部署配置
+# 使用方式: 在 Render 中连接 GitHub 仓库，自动识别此文件
+
+services:
+  - type: web
+    name: stock-monitor
+    runtime: docker
+    repo: https://github.com/zzzzzwq/stock-monitor
+    plan: free
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WECHAT_APPID
+        value: ""
+      - key: WECHAT_SECRET
+        value: ""
+      - key: TZ
+        value: Asia/Shanghai
+    healthCheckPath: /health

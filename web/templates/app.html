@@ -120,10 +120,30 @@ td{border-bottom-color:#2d2f31}
     <h2>📊 盯盘助手</h2>
     <p>A股智能盯盘分析工具</p>
     <div class="login-form">
-      <form id="loginForm" onsubmit="return doLogin()">
-        <input type="text" id="loginName" placeholder="输入昵称" value="用户" required>
+      <!-- 登录 / 注册 切换 -->
+      <div style="display:flex;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <button id="tabLogin" class="btn-tab" onclick="switchAuthTab('login')" style="flex:1;padding:10px;border:none;background:none;font-size:15px;font-weight:600;cursor:pointer;color:var(--text);border-bottom:2px solid var(--navy)">登录</button>
+        <button id="tabRegister" class="btn-tab" onclick="switchAuthTab('register')" style="flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;color:var(--text3)">注册</button>
+      </div>
+
+      <!-- 登录表单 -->
+      <form id="loginForm" onsubmit="return doPhoneLogin()" style="display:block">
+        <input type="tel" id="loginPhone" placeholder="手机号" maxlength="11" required>
+        <input type="password" id="loginPassword" placeholder="密码" required>
         <button type="submit" class="btn btn-primary">登录</button>
       </form>
+
+      <!-- 注册表单 -->
+      <form id="registerForm" onsubmit="return doRegister()" style="display:none">
+        <input type="tel" id="regPhone" placeholder="手机号" maxlength="11" required>
+        <input type="text" id="regNickname" placeholder="昵称（选填）">
+        <input type="password" id="regPassword" placeholder="密码（至少6位）" required>
+        <button type="submit" class="btn btn-primary">注册</button>
+      </form>
+
+      <div style="text-align:center;margin-top:20px">
+        <span id="devLoginLink" style="font-size:13px;color:var(--text3);cursor:pointer" onclick="doDevLogin()">开发模式登录 →</span>
+      </div>
     </div>
   </div>
 </div>
@@ -236,13 +256,43 @@ function api(method, path, data) {
 function showLogin() { document.getElementById('loginScreen').style.display='block'; document.getElementById('appMain').style.display='none'; }
 function showApp() { document.getElementById('loginScreen').style.display='none'; document.getElementById('appMain').style.display='block'; }
 
-function doLogin() {
-  const name = document.getElementById('loginName').value || '用户';
-  api('POST', '/auth/dev-login', {nickname: name, id: Date.now()}).then(d => {
+function switchAuthTab(tab) {
+  document.getElementById('tabLogin').style.cssText = 'flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;' + (tab==='login' ? 'font-weight:600;color:var(--text);border-bottom:2px solid var(--navy)' : 'color:var(--text3)');
+  document.getElementById('tabRegister').style.cssText = 'flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;' + (tab==='register' ? 'font-weight:600;color:var(--text);border-bottom:2px solid var(--navy)' : 'color:var(--text3)');
+  document.getElementById('loginForm').style.display = tab==='login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab==='register' ? 'block' : 'none';
+}
+
+function doPhoneLogin() {
+  const phone = document.getElementById('loginPhone').value;
+  const password = document.getElementById('loginPassword').value;
+  if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
+  if (!password) { alert('请输入密码'); return false; }
+  api('POST', '/auth/login', {phone, password}).then(d => {
+    token = d.token; user = d.user; localStorage.setItem('token', token);
+    showApp(); refreshAll();
+  }).catch(e => alert(e.error || '登录失败'));
+  return false;
+}
+
+function doRegister() {
+  const phone = document.getElementById('regPhone').value;
+  const password = document.getElementById('regPassword').value;
+  const nickname = document.getElementById('regNickname').value || '';
+  if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
+  if (!password || password.length < 6) { alert('密码至少6位'); return false; }
+  api('POST', '/auth/register', {phone, password, nickname}).then(d => {
+    token = d.token; user = d.user; localStorage.setItem('token', token);
+    showApp(); refreshAll();
+  }).catch(e => alert(e.error || '注册失败'));
+  return false;
+}
+
+function doDevLogin() {
+  api('POST', '/auth/dev-login', {nickname: 'dev', id: Date.now()}).then(d => {
     token = d.token; user = d.user; localStorage.setItem('token', token);
     showApp(); refreshAll();
   }).catch(e => alert('登录失败'));
-  return false;
 }
 
 function logout() { localStorage.removeItem('token'); token = ''; showLogin(); }

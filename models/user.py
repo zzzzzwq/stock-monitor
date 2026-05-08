@@ -9,6 +9,8 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     openid = Column(String(128), unique=True, nullable=True, index=True)  # 微信 openid
+    phone = Column(String(16), unique=True, nullable=True, index=True)    # 手机号
+    password_hash = Column(String(128), default="")                       # 密码哈希
     nickname = Column(String(64), default="")
     avatar_url = Column(String(256), default="")
     wechat_webhook = Column(String(512), default="")
@@ -24,6 +26,7 @@ class User(Base):
         return {
             "id": self.id,
             "openid": self.openid,
+            "phone": self.phone,
             "nickname": self.nickname,
             "avatar_url": self.avatar_url,
             "wechat_webhook": bool(self.wechat_webhook),

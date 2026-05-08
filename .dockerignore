@@ -3,7 +3,10 @@
 __pycache__
 *.pyc
 .env
-logs/*.log
+logs/
 data/*.db
 weapp/.git
 .DS_Store
+_fix_ui.py
+test_live.py
+test_api.py
