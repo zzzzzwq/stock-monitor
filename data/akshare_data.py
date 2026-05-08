@@ -110,12 +110,12 @@ def get_market_sentiment() -> dict:
             row = df.iloc[-1]
             result["fund_flow"] = {
                 "date": str(row.iloc[0]),
-                "main_net": round(float(row.iloc[6]) / 1e8, 2) if len(row) > 6 else 0,
-                "main_pct": round(float(row.iloc[7]), 2) if len(row) > 7 else 0,
-                "super_large_net": round(float(row.iloc[8]) / 1e8, 2) if len(row) > 8 else 0,
-                "large_net": round(float(row.iloc[10]) / 1e8, 2) if len(row) > 10 else 0,
-                "medium_net": round(float(row.iloc[12]) / 1e8, 2) if len(row) > 12 else 0,
-                "small_net": round(float(row.iloc[14]) / 1e8, 2) if len(row) > 14 else 0,
+                "main_net": round(float(row.iloc[5]) / 1e8, 2) if len(row) > 5 else 0,
+                "main_pct": round(float(row.iloc[6]), 2) if len(row) > 6 else 0,
+                "super_large_net": round(float(row.iloc[7]) / 1e8, 2) if len(row) > 7 else 0,
+                "large_net": round(float(row.iloc[9]) / 1e8, 2) if len(row) > 9 else 0,
+                "medium_net": round(float(row.iloc[11]) / 1e8, 2) if len(row) > 11 else 0,
+                "small_net": round(float(row.iloc[13]) / 1e8, 2) if len(row) > 13 else 0,
             }
     except Exception as e:
         logger.warning(f"市场情绪获取失败: {e}")

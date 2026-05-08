@@ -112,27 +112,40 @@ td{padding:8px;border-bottom:1px solid #f5f5f5}
     <div id="pageDashboard" class="page active">
       <div id="statusBar" class="card" style="padding:10px 16px;font-size:13px;text-align:center"></div>
 
-      <!-- 主报告 -->
-      <div class="card" id="reportCard">
-        <div class="card-title">📋 市场分析报告</div>
-        <div id="reportLoading" class="loading">加载中...</div>
-        <pre id="reportContent" style="display:none;font-size:13px;line-height:1.7;white-space:pre-wrap;font-family:inherit;color:#333;background:#fafafa;padding:12px;border-radius:8px;margin:0"></pre>
-        <div id="reportEmpty" class="empty-state" style="display:none">
-          <p>还没有持仓</p>
-          <button class="btn btn-primary" style="width:auto;margin-top:12px" onclick="switchTab('holdings')">添加持仓</button>
+      <!-- 报告容器 -->
+      <div id="reportLoading" class="loading" style="padding:40px">加载中...</div>
+      <div id="reportContent" style="display:none">
+        <!-- 大盘指数表格 -->
+        <div class="card" id="indexTableCard">
+          <div class="card-title">📊 大盘指数</div>
+          <table style="width:100%" id="indexTable"><tr><th>指数</th><th style="text-align:right">点位</th><th style="text-align:right">涨跌幅</th></tr></table>
+        </div>
+
+        <!-- 持仓总盈亏 -->
+        <div class="card" id="pnlSummaryCard" style="display:none">
+          <div id="pnlSummaryText" style="text-align:center;font-size:24px;font-weight:700"></div>
+        </div>
+
+        <!-- 持仓明细 + 总结 -->
+        <div id="holdingsReport"></div>
+
+        <!-- 板块 + 资金流向 -->
+        <div class="card" id="extraCard" style="display:none">
+          <div class="card-title">📂 板块 & 资金</div>
+          <div id="extraContent"></div>
+        </div>
+
+        <!-- 总总结 -->
+        <div class="card" id="finalSummaryCard" style="display:none">
+          <div class="card-title">📝 总结</div>
+          <div id="finalSummaryText" style="font-size:14px;line-height:1.8;color:#555"></div>
         </div>
       </div>
 
-      <!-- 资金流向简表 -->
-      <div class="card" id="flowMini" style="display:none">
-        <div class="card-title">💰 资金流向</div>
-        <div id="flowMiniContent"></div>
-      </div>
-
-      <!-- 板块速览 -->
-      <div class="card" id="boardMini" style="display:none">
-        <div class="card-title">📂 板块速览</div>
-        <div id="boardMiniContent"></div>
+      <!-- 无持仓 -->
+      <div id="reportEmpty" class="empty-state" style="display:none">
+        <p>还没有持仓</p>
+        <button class="btn btn-primary" style="width:auto;margin-top:12px" onclick="switchTab('holdings')">添加持仓</button>
       </div>
     </div>
 
@@ -228,49 +241,108 @@ function refreshAll() {
   loadEnvironment();
 }
 
-// === 主报告 ===
+// === 主报告：表格 + 总结 ===
 function loadReport() {
-  Promise.all([
-    api('GET', '/analysis/report'),
-    api('GET', '/analysis/market'),
-    api('GET', '/analysis/summary'),
-  ]).then(([report, market, summary]) => {
-    document.getElementById('statusBar').innerHTML = summary.is_trading_day ? '📈 交易中' : '📊 非交易时间';
+  api('GET', '/analysis/report').then(d => {
+    const rc = document.getElementById('reportContent');
+    const rl = document.getElementById('reportLoading');
+    const re = document.getElementById('reportEmpty');
 
-    // 报告文本
-    if (report.report) {
-      document.getElementById('reportContent').textContent = report.report;
-      document.getElementById('reportContent').style.display = 'block';
-      document.getElementById('reportLoading').style.display = 'none';
-      document.getElementById('reportEmpty').style.display = 'none';
-    } else {
-      document.getElementById('reportLoading').style.display = 'none';
-      document.getElementById('reportEmpty').style.display = 'block';
+    if (!d.holdings || !d.holdings.length) {
+      rl.style.display = 'none';
+      re.style.display = 'block';
+      return;
     }
 
-    // 资金流向简表
-    const flow = market.sentiment?.fund_flow;
-    if (flow) {
-      document.getElementById('flowMini').style.display = 'block';
-      document.getElementById('flowMiniContent').innerHTML =
-        `<div class="flow-grid">${[
-          {l:'主力净流',v:flow.main_net,c:flow.main_net>=0?'up':'down'},
-          {l:'超大单',v:flow.super_large_net,c:flow.super_large_net>=0?'up':'down'},
-          {l:'大单',v:flow.large_net,c:flow.large_net>=0?'up':'down'},
-        ].map(x => `<div class="flow-item"><div class="val ${x.c}">${x.v>0?'+':''}${x.v}</div><div class="lbl">${x.l}</div></div>`).join('')}</div>`;
+    rl.style.display = 'none';
+    re.style.display = 'none';
+    rc.style.display = 'block';
+
+    document.getElementById('statusBar').innerHTML = d.summary ? '📈 非交易时间' : '📊 非交易时间';
+
+    // 大盘指数表
+    const idxTbody = document.getElementById('indexTable').querySelector('tbody') || document.getElementById('indexTable');
+    const idxData = d.indices || {};
+    const idxEntries = Object.entries(idxData);
+    if (idxEntries.length) {
+      idxTbody.innerHTML = '<tr><th>指数</th><th style="text-align:right">点位</th><th style="text-align:right">涨跌幅</th></tr>' +
+        idxEntries.map(([name, v]) =>
+          `<tr><td><b>${name}</b></td><td style="text-align:right">${v.price.toFixed(2)}</td><td style="text-align:right"><span class="${v.change_pct>0?'up':'down'}">${v.change_pct>0?'↑':'↓'} ${v.change_pct>0?'+':''}${v.change_pct.toFixed(2)}%</span></td></tr>`
+        ).join('');
     }
 
-    // 板块速览
-    const boards = market.top_boards || {};
-    if ((boards.top||[]).length) {
-      document.getElementById('boardMini').style.display = 'block';
-      document.getElementById('boardMiniContent').innerHTML =
-        '<div class="board-list">' +
-        (boards.top||[]).slice(0,5).map(b =>
-          `<div class="board-item"><span>${b.name}</span><span class="tag up">+${b.change_pct}%</span></div>`
-        ).join('') +
-        '</div>';
+    // 总盈亏
+    const pnl = d.summary?.total_pnl || 0;
+    const pnlEl = document.getElementById('pnlSummaryText');
+    pnlEl.textContent = `总持仓盈亏: ${pnl>=0?'+':''}${pnl.toFixed(0)} 元`;
+    pnlEl.className = pnl>=0?'up':'down';
+    pnlEl.style.cssText = 'text-align:center;font-size:24px;font-weight:700;padding:16px';
+    document.getElementById('pnlSummaryCard').style.display = 'block';
+
+    // 持仓明细 + 多维总结
+    const insights = d.insights || {};
+    const hEl = document.getElementById('holdingsReport');
+    hEl.innerHTML = (d.holdings||[]).map(h => {
+      const ins = insights[h.code] || {};
+      return `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div><b style="font-size:16px">${h.name}</b> <span style="color:#999;font-size:12px">${h.code}</span></div>
+          <div><span style="font-size:18px;font-weight:700" class="${h.change_pct>0?'up':'down'}">${h.price.toFixed(2)}</span> <span class="tag ${h.change_pct>0?'up':'down'}">${h.change_pct>0?'+':''}${h.change_pct.toFixed(2)}%</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;color:#666;margin-bottom:8px">
+          <span>持仓 ${h.shares}股</span>
+          <span>均价 ${h.cost}</span>
+          <span>日内 ${h.low.toFixed(2)} ~ ${h.high.toFixed(2)}</span>
+          <span>浮亏 ${ins.pnl_value ? (ins.pnl_value>0?'+':'')+ins.pnl_value.toFixed(0) : '--'}</span>
+        </div>
+        ${ins.status ? `<div style="margin-bottom:8px"><span class="tag ${ins.pnl_pct<=-5?'down':ins.pnl_pct>0?'up':'neutral'}">${ins.status}</span> <span class="tag neutral">${ins.position}</span></div>` : ''}
+        ${ins.intraday_analysis ? `<div style="font-size:13px;color:#555;margin-bottom:6px">📊 ${ins.intraday_analysis}</div>` : ''}
+        ${ins.tech_summary ? `<div style="font-size:12px;color:#888;margin-bottom:8px">🔬 ${ins.tech_summary}</div>` : ''}
+        ${(ins.key_points||[]).length ? `<div style="font-size:13px;margin-bottom:8px">${ins.key_points.map(k => `<span class="signal-chip">${k}</span>`).join(' ')}</div>` : ''}
+        ${ins.forward_advice ? `<div style="font-size:14px;font-weight:600;padding:8px 12px;background:#f0f4ff;border-radius:8px;color:#1a1a2e">${ins.forward_advice}</div>` : ''}
+        <div style="text-align:right;margin-top:6px"><button class="btn-sm" onclick="showStock('${h.code}')">详细分析 →</button></div>
+      </div>`;
+    }).join('');
+
+    // 提取总结文本
+    if (d.report) {
+      const lines = d.report.split('\n');
+      const summaryIdx = lines.findIndex(l => l.includes('【总结】'));
+      const sepIdx = lines.findIndex(l => l.includes('━━━'));
+      if (summaryIdx >= 0) {
+        const summaryLines = [];
+        for (let i = summaryIdx + 1; i < (sepIdx > summaryIdx ? sepIdx : lines.length); i++) {
+          if (lines[i].trim()) summaryLines.push(lines[i].trim());
+        }
+        if (summaryLines.length) {
+          document.getElementById('finalSummaryText').innerHTML = summaryLines.join('<br>');
+          document.getElementById('finalSummaryCard').style.display = 'block';
+        }
+      }
     }
+
+    // 板块 + 资金
+    api('GET', '/analysis/market').then(m => {
+      const ec = document.getElementById('extraContent');
+      let html = '';
+      const flow = m.sentiment?.fund_flow;
+      if (flow) {
+        html += '<div style="margin-bottom:8px"><b style="font-size:12px">💰 资金流向（亿）</b><div class="flow-grid">' +
+          [{l:'主力',v:flow.main_net},{l:'超大单',v:flow.super_large_net},{l:'大单',v:flow.large_net},{l:'中单',v:flow.medium_net},{l:'小单',v:flow.small_net}]
+          .map(x => `<div class="flow-item"><div class="val ${x.v>=0?'up':'down'}">${x.v>0?'+':''}${x.v}</div><div class="lbl">${x.l}</div></div>`).join('') +
+          '</div></div>';
+      }
+      const boards = m.top_boards || {};
+      if ((boards.top||[]).length) {
+        html += '<b style="font-size:12px">📂 领涨板块</b><div class="board-list" style="margin-top:4px">' +
+          (boards.top||[]).slice(0,5).map(b => `<div class="board-item"><span>${b.name}</span><span class="tag up">+${b.change_pct}%</span></div>`).join('') +
+          '</div>';
+      }
+      if (html) {
+        document.getElementById('extraCard').style.display = 'block';
+        ec.innerHTML = html;
+      }
+    }).catch(() => {});
   }).catch(() => {});
 }
 
@@ -331,13 +403,20 @@ function showStock(code) {
     const vol = d.vol || {};
     const mas = d.mas || {};
     const macd = d.macd || {};
+    const ins = d.insight || {};
 
     document.getElementById('modalBody').innerHTML = `
-      <div class="modal-title">📈 ${d.name||code} 技术分析</div>
+      <div class="modal-title">📈 ${ins.name||d.name||code} 分析</div>
       <div style="text-align:center;margin-bottom:12px">
         <span style="font-size:28px;font-weight:700" class="${d.bias==='强势'||d.bias==='偏多'?'up':d.bias==='偏空'||d.bias==='弱势'?'down':''}">${d.price.toFixed(2)}</span>
         <span class="tag ${d.score>0?'up':d.score<0?'down':'neutral'}" style="font-size:14px;padding:4px 12px;margin-left:8px">评分${d.score>0?'+':''}${d.score} ${d.bias}</span>
       </div>
+      ${ins.status || ins.position ? `<div style="text-align:center;margin-bottom:12px">
+        ${ins.status ? `<span class="tag ${ins.pnl_pct<=-5?'down':ins.pnl_pct>0?'up':'neutral'}">${ins.status}</span>` : ''}
+        ${ins.position ? `<span class="tag neutral" style="margin-left:6px">${ins.position}</span>` : ''}
+        ${ins.pnl_value ? `<span style="font-size:13px;color:#666;margin-left:8px">浮亏${ins.pnl_value>0?'+':''}${ins.pnl_value.toFixed(0)}</span>` : ''}
+      </div>` : ''}
+      ${ins.intraday_analysis ? `<div style="font-size:13px;color:#555;padding:8px 12px;background:#fafafa;border-radius:8px;margin-bottom:12px">📊 ${ins.intraday_analysis}</div>` : ''}
       <div class="tech-mini" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">
         <div>MA5<span class="v">${mas.ma5||'--'}</span></div>
         <div>MA10<span class="v">${mas.ma10||'--'}</span></div>
@@ -358,8 +437,9 @@ function showStock(code) {
         <div>RSI<span class="v">${d.rsi||'--'}</span></div>
         <div>量比<span class="v">${vol.ratio||'--'}</span></div>
       </div>
-      ${bulls ? `<div style="margin-bottom:6px"><b style="font-size:12px">✅ 多头信号</b><div style="margin-top:4px">${bulls}</div></div>` : ''}
-      ${bears ? `<div><b style="font-size:12px">⚠️ 空头信号</b><div style="margin-top:4px">${bears}</div></div>` : ''}
+      ${(ins.key_points||[]).length ? `<div style="margin-bottom:8px"><b style="font-size:12px">👀 关注点</b><div style="margin-top:4px">${ins.key_points.map(k => `<span class="signal-chip">${k}</span>`).join(' ')}</div></div>` : ''}
+      ${ins.forward_advice ? `<div style="font-size:14px;font-weight:600;padding:10px 14px;background:#f0f4ff;border-radius:8px;color:#1a1a2e;margin-bottom:8px">${ins.forward_advice}</div>` : ''}
+      ${bulls+bears ? `<div style="margin-top:8px"><b style="font-size:12px">📡 信号</b><div style="margin-top:4px">${bulls} ${bears}</div></div>` : ''}
       <div style="margin-top:12px"><button class="btn btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>`;
     document.getElementById('modal').classList.add('show');
   }).catch(() => alert('获取分析失败'));

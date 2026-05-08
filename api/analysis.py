@@ -17,6 +17,7 @@ from data.akshare_data import (
 )
 from analysis.technicals import analyze_stock
 from analysis.portfolio import calc_all_pnl
+from analysis.insights import generate_insight
 from notify.formatter import format_market_report
 from scheduler.calendar import is_trading_day, next_trading_day
 
@@ -164,12 +165,33 @@ def analysis_summary():
 @api_bp.route("/analysis/detail/<code>", methods=["GET"])
 @require_auth
 def analysis_detail(code: str):
-    """单只股票详细技术分析"""
+    """单只股票详细技术分析 + 持仓总结"""
     df = get_history(code)
     if df.empty:
         return jsonify({"error": f"无法获取 {code} 的历史数据"}), 400
 
     result = analyze_stock(df)
+
+    # 如果有持仓数据，生成多维总结
+    config = _load_user_config(request.current_user_id)
+    if config:
+        h = next((x for x in config.get("holdings", []) if x["code"] == code), None)
+        if h:
+            # 获取实时行情丰富数据
+            live_data = get_holdings_quotes([h])
+            key = f"{h['market']}{h['code']}"
+            ld = live_data.get(key, {})
+            prev = ld.get("prev_close", 1) or 1
+            h_enhanced = {
+                **h,
+                "cost": h.get("cost_per_share", 0),
+                "price": ld.get("price", 0),
+                "change_pct": round((ld.get("price", 0) - prev) / prev * 100, 2) if prev else 0,
+                "high": ld.get("high", 0),
+                "low": ld.get("low", 0),
+            }
+            result["insight"] = generate_insight(h_enhanced, result)
+
     return jsonify(result)
 
 
@@ -277,6 +299,12 @@ def analysis_report():
         fund_flow=fund_flow,
     )
 
+    # 生成每只持仓的多维总结
+    insights = {}
+    for h in holdings_enhanced:
+        ta = tech_data.get(h["code"], {})
+        insights[h["code"]] = generate_insight(h, ta)
+
     total_pnl = sum(p.get("pnl", 0) for p in pnl_list)
 
     return jsonify({
@@ -287,6 +315,7 @@ def analysis_report():
         },
         "indices": indices_data,
         "holdings": holdings_enhanced,
+        "insights": insights,
     })
 
 
