@@ -696,10 +696,14 @@ function renderSparkline(points, changePct) {
 function loadDashboard(force) {
   var cached = state.cache.dashboard;
   if (cached.data) {
+    state.dashboard = cached.data;
     document.getElementById('dbLoading').style.display = 'none';
     document.getElementById('dbError').style.display = 'none';
     document.getElementById('dbContent').style.display = 'block';
     renderDashboard(cached.data, true);
+    if (!cached.data.index_intraday || !Object.keys(cached.data.index_intraday).length) {
+      loadIndexIntraday();
+    }
     if (!force && cacheFresh('dashboard')) return;
   } else {
     document.getElementById('dbLoading').style.display = 'block';
@@ -717,6 +721,7 @@ function loadDashboard(force) {
     document.getElementById('dbLoading').style.display = 'none';
     document.getElementById('dbContent').style.display = 'block';
     renderDashboard(data, false);
+    loadIndexIntraday();
   }).catch(function(err) {
     cached.loading = false;
     document.getElementById('dbLoading').style.display = 'none';
@@ -741,19 +746,7 @@ function renderDashboard(data, fromCache) {
     return '<div class="summary-stat"><span class="label">' + item.label + '</span><span class="value ' + item.cls + '">' + item.value + '</span></div>';
   }).join(''));
 
-  var indexRows = '<tr><th>指数</th><th>点位</th><th>涨跌幅</th><th>当日波动</th></tr>';
-  Object.keys(data.indices || {}).forEach(function(name) {
-    var item = data.indices[name];
-    var tech = (data.index_tech || {})[item.code] || (data.index_tech || {})[item.sina_code] || {};
-    var linePoints = (data.index_intraday || {})[name] || [];
-    indexRows += '<tr>' +
-      '<td><div><strong>' + escapeHtml(name) + '</strong></div><div class="subtle">' + escapeHtml(tech.ma_status || '趋势观察中') + '</div></td>' +
-      '<td class="mono">' + fmtNum(item.price) + '</td>' +
-      '<td><span class="tag ' + toneClass(item.change_pct || 0) + '">' + fmtSigned(item.change_pct || 0) + '%</span></td>' +
-      '<td>' + renderSparkline(linePoints, item.change_pct || 0) + '</td>' +
-    '</tr>';
-  });
-  setNodeHtml('idxTable', indexRows);
+  renderIndexTable(data);
 
   var flowItems = [
     { label: '主力', value: flow.main_net || 0 },
@@ -778,6 +771,33 @@ function renderDashboard(data, fromCache) {
 
   setNodeHtml('extraContent', extraHtml);
   setNodeText('summaryText', (data.report || '暂无总结').trim());
+}
+
+function renderIndexTable(data) {
+  var indexRows = '<tr><th>指数</th><th>点位</th><th>涨跌幅</th><th>当日波动</th></tr>';
+  Object.keys(data.indices || {}).forEach(function(name) {
+    var item = data.indices[name];
+    var tech = (data.index_tech || {})[item.code] || (data.index_tech || {})[item.sina_code] || {};
+    var linePoints = (data.index_intraday || {})[name] || [];
+    indexRows += '<tr>' +
+      '<td><div><strong>' + escapeHtml(name) + '</strong></div><div class="subtle">' + escapeHtml(tech.ma_status || '趋势观察中') + '</div></td>' +
+      '<td class="mono">' + fmtNum(item.price) + '</td>' +
+      '<td><span class="tag ' + toneClass(item.change_pct || 0) + '">' + fmtSigned(item.change_pct || 0) + '%</span></td>' +
+      '<td>' + renderSparkline(linePoints, item.change_pct || 0) + '</td>' +
+    '</tr>';
+  });
+  setNodeHtml('idxTable', indexRows);
+}
+
+function loadIndexIntraday() {
+  if (!state.dashboard) return;
+  apiRequest('GET', '/analysis/index-intraday').then(function(data) {
+    state.dashboard.index_intraday = data.index_intraday || {};
+    if (state.cache.dashboard.data) {
+      state.cache.dashboard.data.index_intraday = state.dashboard.index_intraday;
+    }
+    renderIndexTable(state.dashboard);
+  }).catch(function() {});
 }
 
 function loadHoldings(force) {
@@ -871,12 +891,24 @@ function renderHoldings(holdings, dashboard) {
   }).join(''));
 }
 
-function loadPortfolio() {
-  document.getElementById('pfLoading').style.display = 'block';
-  document.getElementById('pfEmpty').style.display = 'none';
-  document.getElementById('pfContent').style.display = 'none';
+function loadPortfolio(force) {
+  var cached = state.cache.portfolio;
+  if (cached.data) {
+    document.getElementById('pfLoading').style.display = 'none';
+    document.getElementById('pfEmpty').style.display = cached.data.error ? 'block' : 'none';
+    document.getElementById('pfContent').style.display = cached.data.error ? 'none' : 'block';
+    if (!cached.data.error) renderPortfolio(cached.data);
+    if (!force && cacheFresh('portfolio')) return;
+  } else {
+    document.getElementById('pfLoading').style.display = 'block';
+    document.getElementById('pfEmpty').style.display = 'none';
+    document.getElementById('pfContent').style.display = 'none';
+  }
 
+  if (cached.loading) return;
+  cached.loading = true;
   apiRequest('GET', '/analysis/portfolio').then(function(data) {
+    state.cache.portfolio = { data: data, time: Date.now(), loading: false };
     document.getElementById('pfLoading').style.display = 'none';
     if (data.error) {
       document.getElementById('pfEmpty').style.display = 'block';
@@ -885,8 +917,9 @@ function loadPortfolio() {
     document.getElementById('pfContent').style.display = 'block';
     renderPortfolio(data);
   }).catch(function() {
+    cached.loading = false;
     document.getElementById('pfLoading').style.display = 'none';
-    document.getElementById('pfEmpty').style.display = 'block';
+    if (!cached.data) document.getElementById('pfEmpty').style.display = 'block';
   });
 }
 
@@ -942,16 +975,32 @@ function renderPortfolio(data) {
   }).join('') || '<div class="subtle">暂无调仓建议</div>');
 }
 
-function loadSettings() {
-  apiRequest('GET', '/auth/me').then(function(user) {
-    setNodeText('userDetail', '昵称：' + (user.nickname || '未设置') + ' | ID：' + user.id);
-  }).catch(function() {});
+function loadSettings(force) {
+  var cached = state.cache.settings;
+  if (cached.user && cached.notify) {
+    setNodeText('userDetail', '昵称：' + (cached.user.nickname || '未设置') + ' | ID：' + cached.user.id);
+    document.getElementById('wechatUrl').value = cached.notify.wechat_webhook || '';
+    document.getElementById('dingtalkUrl').value = cached.notify.dingtalk_webhook || '';
+    document.getElementById('atMobiles').value = (cached.notify.at_mobiles || []).join(',');
+    if (!force && cacheFresh('settings')) return;
+  }
 
-  apiRequest('GET', '/notify/config').then(function(config) {
+  if (cached.loading) return;
+  cached.loading = true;
+  Promise.all([
+    apiRequest('GET', '/auth/me'),
+    apiRequest('GET', '/notify/config')
+  ]).then(function(results) {
+    var user = results[0] || {};
+    var config = results[1] || {};
+    state.cache.settings = { user: user, notify: config, time: Date.now(), loading: false };
+    setNodeText('userDetail', '昵称：' + (user.nickname || '未设置') + ' | ID：' + user.id);
     document.getElementById('wechatUrl').value = config.wechat_webhook || '';
     document.getElementById('dingtalkUrl').value = config.dingtalk_webhook || '';
     document.getElementById('atMobiles').value = (config.at_mobiles || []).join(',');
-  }).catch(function() {});
+  }).catch(function() {
+    cached.loading = false;
+  });
 }
 
 function saveNotify() {
@@ -962,6 +1011,7 @@ function saveNotify() {
       return item.trim();
     }).filter(Boolean)
   }).then(function() {
+    state.cache.settings.time = 0;
     showAlert('通知配置已保存');
   }).catch(function(err) {
     showAlert((err && err.error) || '保存失败');
@@ -1196,9 +1246,10 @@ function saveHolding(id) {
   }
   var request = id ? apiRequest('PUT', '/holdings/' + id, payload) : apiRequest('POST', '/holdings', payload);
   request.then(function() {
+    invalidateCaches();
     closeModal();
-    loadHoldings();
-    loadDashboard();
+    loadHoldings(true);
+    loadDashboard(true);
   }).catch(function(err) {
     showAlert((err && err.error) || '保存持仓失败');
   });
@@ -1208,8 +1259,9 @@ function saveHolding(id) {
 function deleteHolding(id) {
   if (!confirm('确定删除该持仓吗？')) return;
   apiRequest('DELETE', '/holdings/' + id).then(function() {
-    loadHoldings();
-    loadDashboard();
+    invalidateCaches();
+    loadHoldings(true);
+    loadDashboard(true);
   }).catch(function(err) {
     showAlert((err && err.error) || '删除失败');
   });

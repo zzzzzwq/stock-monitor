@@ -372,7 +372,8 @@ def market_environment():
 def analysis_dashboard():
     """Dashboard 聚合数据：大盘、资金流、持仓快照与全文总结。"""
     refresh = request.args.get("refresh") == "1"
-    cache_key = f"user:{request.current_user_id}"
+    include_lines = request.args.get("lines") == "1"
+    cache_key = f"user:{request.current_user_id}:lines:{include_lines}"
     cached = _DASHBOARD_CACHE.get(cache_key)
     now_ts = time.time()
     if cached and not refresh and now_ts - cached["time"] < _DASHBOARD_CACHE_TTL:
@@ -385,7 +386,6 @@ def analysis_dashboard():
     index_symbols = [x.get("code", x.get("sina_code")) for x in indices_config]
     indices_data = _build_indices_data(indices_config)
     index_tech = _build_index_tech(index_symbols)
-    index_intraday = _build_index_intraday(indices_config)
     sentiment = get_market_sentiment()
     top_boards = get_top_boards(8)
     report_payload = _build_holdings_report_payload(config)
@@ -394,7 +394,7 @@ def analysis_dashboard():
         "is_trading_day": is_trading_day(),
         "indices": indices_data,
         "index_tech": index_tech,
-        "index_intraday": index_intraday,
+        "index_intraday": _build_index_intraday(indices_config) if include_lines else {},
         "sentiment": sentiment,
         "top_boards": top_boards,
         "report": report_payload["report"],
@@ -408,6 +408,14 @@ def analysis_dashboard():
     }
     _DASHBOARD_CACHE[cache_key] = {"time": now_ts, "data": data}
     return jsonify(data)
+
+
+@api_bp.route("/analysis/index-intraday", methods=["GET"])
+@require_auth
+def analysis_index_intraday():
+    """指数当日分时波动线。"""
+    global_config = _load_global_config()
+    return jsonify({"index_intraday": _build_index_intraday(global_config.get("indices", []))})
 
 
 @api_bp.route("/analysis/report", methods=["GET"])
