@@ -97,7 +97,6 @@ tr:last-child td{border-bottom:none}
 #stockSearch{font-size:14px;padding:10px 12px}
 .flow-grid{grid-template-columns:repeat(3,1fr)}
 .holding-meta{grid-template-columns:1fr 1fr}
-}
 @media(prefers-color-scheme:dark){
 :root{--bg:#0f1117;--card:rgba(26,28,34,.85);--card-border:rgba(91,103,241,.15);--text:#e4e6ed;--text2:#9aa0a6;--text3:#5f6368;--shadow:0 8px 28px rgba(0,0,0,.25);--shadow-hover:0 12px 36px rgba(0,0,0,.3)}
 body{background:radial-gradient(ellipse at 20% 20%,rgba(91,103,241,.08),transparent 40%),radial-gradient(ellipse at 80% 80%,rgba(124,84,217,.06),transparent 40%),#0f1117}
@@ -115,7 +114,6 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
 .flow-item,.tech-mini>div,.board-item,.holding-meta{background:rgba(148,163,184,.06)}
 .advice-box{background:linear-gradient(135deg,rgba(91,103,241,.1),rgba(124,84,217,.1))}
 .tab-bar{background:rgba(15,17,23,.85)}
-}
 </style>
 </head>
 <body>
@@ -273,17 +271,14 @@ function api(method, path, data) {
       if (r.status === 401) { throw new Error('unauth'); }
       return r.json().then(function(d) { return r.ok ? d : Promise.reject(d); });
     });
-}
 
 
-}
 
 
 function refreshAll() {
   document.getElementById('userInfo').textContent = (user && user.nickname) || '已登录';
   loadReport();
   loadEnvironment();
-}
 
 // === 主报告：表格 + 总结 ===
 function loadReport() {
@@ -392,7 +387,6 @@ function loadReport() {
     document.getElementById('reportLoading').style.display = 'none';
     document.getElementById('reportEmpty').style.display = 'block';
   });
-}
 
 // === 搜索 + 诊断 ===
 let searchTimer;
@@ -413,7 +407,6 @@ function onStockSearch(query) {
       el.style.display = 'block';
     }).catch(() => {});
   }, 200);
-}
 
 function diagnoseStock(code) {
   document.getElementById('searchResults').style.display = 'none';
@@ -445,7 +438,6 @@ function diagnoseStock(code) {
       <div style="margin-top:16px"><button class="btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>`;
     document.getElementById('modal').classList.add('show');
   }).catch(() => alert('获取诊断失败'));
-}
 
 // === 大盘补充（用于 loadReport 之后） ===
 function loadEnvironment() {
@@ -456,7 +448,6 @@ function loadEnvironment() {
     document.getElementById('reportLoading').style.display = 'none';
     document.getElementById('reportEmpty').style.display = 'block';
   });
-}
 
 // === 组合分析 ===
 function loadPortfolio() {
@@ -538,7 +529,6 @@ function loadPortfolio() {
     document.getElementById('portfolioLoading').style.display = 'none'; 
     document.getElementById('portfolioEmpty').style.display = 'block'; 
   });
-}
 
 // === Holdings ===
 function loadHoldings() {
@@ -560,7 +550,6 @@ function loadHoldings() {
     document.getElementById('reportLoading').style.display = 'none';
     document.getElementById('reportEmpty').style.display = 'block';
   });
-}
 function showHoldingForm(data) {
   var isEdit = !!data;
   document.getElementById('modalBody').innerHTML = `
@@ -588,7 +577,6 @@ function showHoldingForm(data) {
       <input type="hidden" id="f_boards" value="">
     </form>`;
   document.getElementById('modal').classList.add('show');
-}
 function saveHolding(form, id) {
   var d = {code: document.getElementById('f_code').value, name: document.getElementById('f_name').value, market: document.getElementById('f_market').value, shares: parseInt(document.getElementById('f_shares').value), cost_per_share: parseFloat(document.getElementById('f_cost').value)};
   var boards = document.getElementById('f_boards').value;
@@ -596,7 +584,6 @@ function saveHolding(form, id) {
   var p = id ? api('PUT', '/holdings/' + id, d) : api('POST', '/holdings', d);
   p.then(function() { closeModal(); loadHoldings(); refreshAll(); });
   return false;
-}
 function onStockSelect(q) {
   if (!q || q.length < 1) { var el = document.getElementById('f_stockResults'); if(el)el.style.display='none'; return; }
   api('GET', '/stock/search?q='+encodeURIComponent(q)).then(function(results) {
@@ -611,7 +598,6 @@ function onStockSelect(q) {
     }).join('');
     el.style.display = 'block';
   }).catch(function() {});
-}
 function pickStock(code, name, market) {
   document.getElementById('f_stockSearch').value = name + ' (' + code + ')';
   document.getElementById('f_code').value = code;
@@ -623,11 +609,9 @@ function pickStock(code, name, market) {
       try { document.getElementById('f_boards').value = JSON.stringify(info.boards); } catch(e) {}
     }
   }).catch(function() {});
-}
 function deleteHolding(id) {
   if (!confirm('确定删除？')) return;
   api('DELETE', `/holdings/${id}`).then(() => { loadHoldings(); refreshAll(); });
-}
 
 // === Stock Detail ===
 function showStock(code) {
@@ -680,16 +664,13 @@ function showStock(code) {
       <div style="margin-top:12px"><button class="btn btn-cancel" style="width:100%" onclick="closeModal()">关闭</button></div>`;
     document.getElementById('modal').classList.add('show');
   }).catch(() => alert('获取分析失败'));
-}
 
 // === Settings ===
 function loadSettings() {
   api('GET', '/auth/me').then(u => { document.getElementById('userDetail').textContent = `昵称: ${u.nickname||'未设置'} | ID: ${u.id}`; }).catch(() => {});
 	  api('GET', '/notify/config').then(function(c) { document.getElementById('wechatUrl').value = c.wechat_webhook||''; document.getElementById('dingtalkUrl').value = c.dingtalk_webhook||''; document.getElementById('atMobiles').value = (c.at_mobiles||[]).join(','); }).catch(function(){});
-}
 function saveNotify() {
   api('PUT', '/notify/config', {wechat_webhook: document.getElementById('wechatUrl').value, dingtalk_webhook: document.getElementById('dingtalkUrl').value, at_mobiles: document.getElementById('atMobiles').value.split(',').map(s=>s.trim()).filter(Boolean)}).then(() => alert('保存成功')).catch(() => alert('保存失败'));
-}
 function closeModal() { document.getElementById('modal').classList.remove('show'); }
 
   document.addEventListener('DOMContentLoaded', function() {
