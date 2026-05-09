@@ -1,6 +1,7 @@
 """akshare 数据封装（统一异常处理 + 降级）"""
 import logging
 from datetime import datetime, timedelta
+import time
 
 import akshare as ak
 import pandas as pd
@@ -10,6 +11,8 @@ logger = logging.getLogger(__name__)
 # 交易日缓存
 _TRADE_CALENDAR = None
 _CALENDAR_DATE = None
+_INDEX_INTRADAY_CACHE = {}
+_INDEX_INTRADAY_TTL = 60
 
 
 def is_trading_day(dt: datetime = None) -> bool:
@@ -171,6 +174,45 @@ def get_index_tech(symbol: str = "sh000001") -> dict:
     except Exception as e:
         logger.warning(f"指数技术面获取失败: {e}")
         return {}
+
+
+def get_index_intraday(symbol: str = "sh000001", period: str = "5") -> list[dict]:
+    """获取指数当日分时波动线，返回轻量点位列表。"""
+    cache_key = f"{symbol}:{period}:{datetime.now().strftime('%Y-%m-%d')}"
+    cached = _INDEX_INTRADAY_CACHE.get(cache_key)
+    now_ts = time.time()
+    if cached and now_ts - cached["time"] < _INDEX_INTRADAY_TTL:
+        return cached["data"]
+
+    code = symbol[2:] if symbol.startswith(("sh", "sz")) else symbol
+    start = datetime.now().strftime("%Y-%m-%d 09:30:00")
+    end = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        df = ak.index_zh_a_hist_min_em(
+            symbol=code,
+            period=period,
+            start_date=start,
+            end_date=end,
+        )
+        if df is None or df.empty or "收盘" not in df.columns:
+            return []
+
+        points = []
+        for _, row in df.tail(72).iterrows():
+            price = row.get("收盘")
+            if pd.isna(price):
+                continue
+            points.append({
+                "time": str(row.get("时间", ""))[11:16],
+                "price": round(float(price), 2),
+            })
+
+        _INDEX_INTRADAY_CACHE[cache_key] = {"time": now_ts, "data": points}
+        return points
+    except Exception as e:
+        logger.warning(f"指数分时波动线获取失败 [{symbol}]: {e}")
+        return []
 
 
 def get_stock_boards(code: str) -> list[str]:
