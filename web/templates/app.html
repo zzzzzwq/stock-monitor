@@ -49,9 +49,6 @@ th{padding:10px 6px;color:var(--text3);font-weight:500;font-size:11px;text-trans
 td{padding:12px 6px;border-bottom:1px solid rgba(91,103,241,.06)}
 tr:last-child td{border-bottom:none}
 .loading{text-align:center;padding:48px 0;color:var(--text3);font-size:14px}
-.login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:85vh;padding:40px 20px}
-.login-screen h2{font-size:32px;margin-bottom:8px;font-weight:800;background:var(--primary-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.login-screen p{color:var(--text3);margin-bottom:36px;font-size:14px}
 .login-form{width:100%;max-width:320px}
 .empty-state{text-align:center;padding:48px 0;color:var(--text3);font-size:14px}
 .tab-bar{display:flex;gap:6px;padding:10px 0 8px;margin-bottom:4px;position:sticky;top:56px;z-index:90;background:rgba(244,246,252,.85);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
@@ -125,43 +122,10 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
 
 <div class="header">
   <h1>📊 盯盘助手</h1>
-  <span class="user-info" id="userInfo" onclick="switchTab('settings')">未登录</span>
+  <span class="user-info" id="userInfo" onclick="switchTab('settings')">已登录</span>
 </div>
 
-<div class="container" id="loginScreen">
-  <div class="login-screen">
-    <h2>📊 盯盘助手</h2>
-    <p>A股智能盯盘分析工具</p>
-    <div class="login-form">
-      <!-- 登录 / 注册 切换 -->
-      <div style="display:flex;margin-bottom:16px;border-bottom:1px solid var(--border)">
-        <button id="tabLogin" class="btn-tab" onclick="switchAuthTab('login')" style="flex:1;padding:10px;border:none;background:none;font-size:15px;font-weight:600;cursor:pointer;color:var(--text);border-bottom:2px solid var(--primary)">登录</button>
-        <button id="tabRegister" class="btn-tab" onclick="switchAuthTab('register')" style="flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;color:var(--text3)">注册</button>
-      </div>
-
-      <!-- 登录表单 -->
-      <form id="loginForm" style="display:block">
-        <input type="tel" id="loginPhone" placeholder="手机号" maxlength="11" required>
-        <input type="password" id="loginPassword" placeholder="密码" required>
-        <button type="button" class="btn btn-primary" onclick="doPhoneLogin()">登录</button>
-      </form>
-
-      <!-- 注册表单 -->
-      <form id="registerForm" style="display:none">
-        <input type="tel" id="regPhone" placeholder="手机号" maxlength="11" required>
-        <input type="text" id="regNickname" placeholder="昵称（选填）">
-        <input type="password" id="regPassword" placeholder="密码（至少6位）" required>
-        <button type="button" class="btn btn-primary" onclick="doRegister()">注册</button>
-      </form>
-
-      <div style="text-align:center;margin-top:20px">
-        <span id="devLoginLink" style="font-size:13px;color:var(--text3);cursor:pointer" onclick="doDevLogin()">开发模式登录 →</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="appMain" style="display:none">
+<div id="appMain" style="display:block">
   <div class="container">
     <!-- DASHBOARD PAGE -->
     <div id="pageDashboard" class="page active">
@@ -281,9 +245,6 @@ input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(9
         </div>
         <button class="btn btn-primary" onclick="saveNotify()">保存</button>
       </div>
-      <div class="card">
-        <button class="btn" style="width:100%;color:#e74c3c;background:#fce4e4;border:none;padding:10px;border-radius:8px;cursor:pointer" onclick="logout()">退出登录</button>
-      </div>
     </div>
   </div>
 
@@ -309,81 +270,14 @@ function api(method, path, data) {
   if (token) { hdrs['Authorization'] = 'Bearer ' + token; }
   return fetch(API + path, { method: method, headers: hdrs, body: data ? JSON.stringify(data) : undefined })
     .then(function(r) {
-      if (r.status === 401) { localStorage.removeItem('token'); token=''; showLogin(); throw new Error('unauth'); }
+      if (r.status === 401) { throw new Error('unauth'); }
       return r.json().then(function(d) { return r.ok ? d : Promise.reject(d); });
     });
 }
 
-function showLogin() { document.getElementById('loginScreen').style.display='block'; document.getElementById('appMain').style.display='none'; }
-function showApp() { document.getElementById('loginScreen').style.display='none'; document.getElementById('appMain').style.display='block'; }
 
-function switchAuthTab(tab) {
-  var base = 'flex:1;padding:10px;border:none;background:none;font-size:15px;cursor:pointer;';
-  var active = base + 'font-weight:600;color:var(--text);border-bottom:2px solid var(--primary)';
-  var inactive = base + 'color:var(--text3)';
-  document.getElementById('tabLogin').style.cssText = tab === 'login' ? active : inactive;
-  document.getElementById('tabRegister').style.cssText = tab === 'register' ? active : inactive;
-  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
-  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
 }
 
-function doPhoneLogin() {
-  try {
-    var phone = document.getElementById('loginPhone').value.trim();
-    var password = document.getElementById('loginPassword').value;
-    localStorage.setItem('last_phone', phone);
-    if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
-    if (!password) { alert('请输入密码'); return false; }
-    api('POST', '/auth/login', {phone: phone, password: password}).then(function(d) {
-      token = d.token; user = d.user; localStorage.setItem('token', token);
-      showApp(); refreshAll();
-    }).catch(function(e) {
-      var msg = (e && e.error) || '登录失败';
-      if (msg.indexOf('手机号或密码错误') >= 0) msg = '账户不存在或密码错误，请先注册';
-      alert(msg);
-    });
-  } catch(e) { alert('登录出错: ' + e.message); }
-  return false;
-}
-
-function doRegister() {
-  try {
-    var phone = document.getElementById('regPhone').value.trim();
-    var password = document.getElementById('regPassword').value;
-    var nickname = document.getElementById('regNickname').value.trim() || '';
-    if (!phone || phone.length < 11) { alert('请输入正确手机号'); return false; }
-    if (!password || password.length < 6) { alert('密码至少6位'); return false; }
-    api('POST', '/auth/register', {phone: phone, password: password, nickname: nickname}).then(function(d) {
-      token = d.token; user = d.user; localStorage.setItem('token', token);
-      showApp(); refreshAll();
-    }).catch(function(e) {
-      var msg = (e && e.error) || '注册失败';
-      if (msg.indexOf('已注册') >= 0) msg = '该手机号已注册，请直接登录';
-      alert(msg);
-    });
-  } catch(e) { alert('注册出错: ' + e.message); }
-  return false;
-}
-
-function doDevLogin() {
-  api('POST', '/auth/dev-login', {nickname: 'dev', id: Date.now()}).then(function(d) {
-    token = d.token; user = d.user; localStorage.setItem('token', token);
-    showApp(); refreshAll();
-  }).catch(function(e) { alert('开发登录失败'); });
-}
-
-function logout() { localStorage.removeItem('token'); token = ''; showLogin(); }
-
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
-  document.getElementById('page'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
-  document.querySelector('.tab-bar .tab[onclick*="' + tab + '"]').classList.add('active');
-  if (tab==='dashboard') refreshAll();
-  if (tab==='holdings') loadHoldings();
-  if (tab==='portfolio') loadPortfolio();
-  if (tab==='settings') loadSettings();
-}
 
 function refreshAll() {
   document.getElementById('userInfo').textContent = (user && user.nickname) || '已登录';
@@ -798,24 +692,15 @@ function saveNotify() {
 }
 function closeModal() { document.getElementById('modal').classList.remove('show'); }
 
-document.addEventListener('DOMContentLoaded', function() {
-  if (token) {
-    showApp();
+  document.addEventListener('DOMContentLoaded', function() {
     api('GET', '/auth/me').then(function(u) {
       user = u;
       document.getElementById('userInfo').textContent = u.nickname || '已登录';
       refreshAll();
     }).catch(function() {
-      localStorage.removeItem('token');
-      token = '';
-      showLogin();
+      refreshAll();
     });
-  } else {
-      showLogin();
-      var lastPhone = localStorage.getItem('last_phone');
-      if (lastPhone) { document.getElementById('loginPhone').value = lastPhone; }
-    }
-});
+  });
 
 
 function quickAddHolding(code) {
